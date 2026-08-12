@@ -1,0 +1,13 @@
+[Unit]
+Description=D Drive Tracker API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dali/user-files/d-api
+ExecStart=/home/dali/user-files/d-api/.venv/bin/uvicorn server:app --host 127.0.0.1 --port 8911 --app-dir /home/dali/user-files/d-api
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

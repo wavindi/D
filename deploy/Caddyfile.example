@@ -1,0 +1,18 @@
+test.wajdi.site {
+    handle /api* {
+        reverse_proxy 127.0.0.1:8911
+    }
+
+    root * /home/dali/user-files/test-site
+    encode gzip zstd
+    file_server
+
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "geolocation=(self), microphone=(), camera=()"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Cache-Control "no-cache"
+        -Server
+    }
+}

@@ -4,18 +4,29 @@ import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/models/run_record.dart';
+import '../api/d_api.dart';
 
 class RunRepository {
   static const _runsKey = 'd_racing_runs_v3';
   static const _territoryKey = 'd_racing_territories_v1';
 
   Future<RunRecord> save(RunRecord run) async {
+    // Signed-in users store the canonical trip on the VPS. Keep a local copy
+    // as an offline cache so the app remains useful during weak connectivity.
+    RunRecord? remoteSaved;
+    if (DApi.instance.token != null) {
+      remoteSaved = await DApi.instance.saveTrip(run);
+    }
+
     final prefs = await SharedPreferences.getInstance();
-    final existing = await getAll();
-    final id = (existing.isEmpty
-            ? 0
-            : existing.map((e) => e.id ?? 0).reduce((a, b) => a > b ? a : b)) +
-        1;
+    final existing = await _getLocal();
+    final id = remoteSaved?.id ??
+        ((existing.isEmpty
+                ? 0
+                : existing
+                    .map((e) => e.id ?? 0)
+                    .reduce((a, b) => a > b ? a : b)) +
+            1);
     final saved = RunRecord(
       id: id,
       startedAt: run.startedAt,
@@ -27,13 +38,17 @@ class RunRepository {
       stoppedSeconds: run.stoppedSeconds,
       samples: run.samples,
     );
-    final next = [saved, ...existing];
+    final next = [
+      saved,
+      ...existing.where(
+        (item) => item.startedAt.toIso8601String() != run.startedAt.toIso8601String(),
+      ),
+    ];
     await prefs.setString(
       _runsKey,
       jsonEncode(next.map((e) => e.toMap()).toList(growable: false)),
     );
 
-    // Claim territory cells from the route.
     final claimed = await getTerritories();
     for (final sample in run.samples) {
       claimed.add(_cellKey(sample.lat, sample.lng));
@@ -43,8 +58,24 @@ class RunRepository {
   }
 
   Future<List<RunRecord>> getAll() async {
+    if (DApi.instance.token != null) {
+      try {
+        final remote = await DApi.instance.fetchTrips();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          _runsKey,
+          jsonEncode(remote.map((e) => e.toMap()).toList(growable: false)),
+        );
+        return remote;
+      } catch (_) {
+        // Use the local cache if the VPS is temporarily unreachable.
+      }
+    }
+    return _getLocal();
+  }
+
+  Future<List<RunRecord>> _getLocal() async {
     final prefs = await SharedPreferences.getInstance();
-    // Prefer v3, fall back to v2.
     final raw = prefs.getString(_runsKey) ?? prefs.getString('d_racing_runs_v2');
     if (raw == null || raw.isEmpty) return const [];
     final list = jsonDecode(raw) as List<dynamic>;
