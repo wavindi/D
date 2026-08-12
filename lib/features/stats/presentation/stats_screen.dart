@@ -6,13 +6,21 @@ import '../../../core/utils/formatters.dart';
 import '../../run/application/run_providers.dart';
 
 class StatsScreen extends ConsumerWidget {
-  const StatsScreen({super.key});
+  const StatsScreen({super.key, this.onMenu});
+  final VoidCallback? onMenu;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(drivingStatsProvider);
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: onMenu == null,
+        leading: onMenu == null
+            ? null
+            : IconButton(
+                onPressed: onMenu,
+                icon: const Icon(Icons.menu_rounded),
+              ),
         title: const Text(
           'STATS',
           style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),

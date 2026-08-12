@@ -8,13 +8,21 @@ import '../../../data/repositories/run_repository.dart';
 import '../../run/application/run_providers.dart';
 
 class TerritoryScreen extends ConsumerWidget {
-  const TerritoryScreen({super.key});
+  const TerritoryScreen({super.key, this.onMenu});
+  final VoidCallback? onMenu;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final territories = ref.watch(territoriesProvider);
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: onMenu == null,
+        leading: onMenu == null
+            ? null
+            : IconButton(
+                onPressed: onMenu,
+                icon: const Icon(Icons.menu_rounded),
+              ),
         title: const Text(
           'TERRITORY',
           style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),

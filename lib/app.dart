@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
-import 'features/home/presentation/home_screen.dart';
+import 'shared/widgets/app_shell.dart';
 
 class DApp extends StatelessWidget {
   const DApp({super.key});
@@ -11,7 +11,15 @@ class DApp extends StatelessWidget {
     return MaterialApp(
       title: 'D Drive Tracker',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
+      theme: AppTheme.dark.copyWith(
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+          },
+        ),
+      ),
       builder: (context, child) {
         final media = MediaQuery.of(context);
         return MediaQuery(
@@ -24,7 +32,7 @@ class DApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: const HomeScreen(),
+      home: const AppShell(),
     );
   }
 }

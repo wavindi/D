@@ -5,13 +5,21 @@ import '../../../core/theme/app_theme.dart';
 import '../../run/application/run_providers.dart';
 
 class LeaderboardScreen extends ConsumerWidget {
-  const LeaderboardScreen({super.key});
+  const LeaderboardScreen({super.key, this.onMenu});
+  final VoidCallback? onMenu;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(runHistoryProvider);
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: onMenu == null,
+        leading: onMenu == null
+            ? null
+            : IconButton(
+                onPressed: onMenu,
+                icon: const Icon(Icons.menu_rounded),
+              ),
         title: const Text(
           'LEADERBOARD',
           style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),

@@ -5,12 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../features/history/presentation/run_history_screen.dart';
-import '../../../features/leaderboard/presentation/leaderboard_screen.dart';
 import '../../../features/run/application/run_providers.dart';
 import '../../../features/run/presentation/active_run_screen.dart';
-import '../../../features/stats/presentation/stats_screen.dart';
-import '../../../features/territory/presentation/territory_screen.dart';
+import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/led_button.dart';
 import 'route_stop.dart';
 
@@ -29,7 +26,8 @@ const _destinations = [
 ];
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onMenu});
+  final VoidCallback? onMenu;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -217,9 +215,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             destinationName: destination.name,
           );
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const ActiveRunScreen()),
-      );
+      await Navigator.of(context).push(slideUpRoute(const ActiveRunScreen()));
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -236,9 +232,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       await ref.read(activeRunProvider.notifier).start(freeDrive: true);
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const ActiveRunScreen()),
-      );
+      await Navigator.of(context).push(slideUpRoute(const ActiveRunScreen()));
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -262,10 +256,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final autoStatus = ref.watch(
       activeRunProvider.select((s) => s.autoTrackStatus),
     );
-    final territories = ref.watch(territoriesProvider).maybeWhen(
-          data: (v) => v.length,
-          orElse: () => 0,
-        );
     return Scaffold(
       body: Stack(
         children: [
@@ -319,30 +309,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                   Row(
                     children: [
-                      Container(
-                        width: 54,
-                        height: 54,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: AppColors.black,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: AppColors.blue, width: 2),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: AppColors.blueGlow,
-                              blurRadius: 18,
-                            ),
-                          ],
-                        ),
-                        child: const Text(
-                          'D',
-                          style: TextStyle(
-                            color: AppColors.blue,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
+                      _MenuButton(onTap: widget.onMenu),
                       const SizedBox(width: 10),
                       Expanded(
                         child: TextField(
@@ -445,47 +412,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(color: AppColors.muted, fontSize: 12),
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            _NavChip(
-                              icon: Icons.insights_rounded,
-                              label: 'Stats',
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const StatsScreen(),
-                                ),
-                              ),
-                            ),
-                            _NavChip(
-                              icon: Icons.public_rounded,
-                              label: 'Map $territories',
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const TerritoryScreen(),
-                                ),
-                              ),
-                            ),
-                            _NavChip(
-                              icon: Icons.emoji_events_rounded,
-                              label: 'Ranks',
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const LeaderboardScreen(),
-                                ),
-                              ),
-                            ),
-                            _NavChip(
-                              icon: Icons.history_rounded,
-                              label: 'Trips',
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const RunHistoryScreen(),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
@@ -501,37 +427,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _NavChip extends StatelessWidget {
-  const _NavChip({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+class _MenuButton extends StatelessWidget {
+  const _MenuButton({this.onTap});
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Expanded(
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              children: [
-                Icon(icon, color: AppColors.blue),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.black,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.blue, width: 2),
+            boxShadow: const [
+              BoxShadow(color: AppColors.blueGlow, blurRadius: 18),
+            ],
           ),
+          child: const Icon(Icons.menu_rounded, color: AppColors.blue, size: 28),
         ),
-      );
+      ),
+    );
+  }
 }
