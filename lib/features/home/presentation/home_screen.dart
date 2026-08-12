@@ -6,8 +6,11 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../features/history/presentation/run_history_screen.dart';
+import '../../../features/leaderboard/presentation/leaderboard_screen.dart';
 import '../../../features/run/application/run_providers.dart';
 import '../../../features/run/presentation/active_run_screen.dart';
+import '../../../features/stats/presentation/stats_screen.dart';
+import '../../../features/territory/presentation/territory_screen.dart';
 import '../../../shared/widgets/led_button.dart';
 import 'route_stop.dart';
 
@@ -209,21 +212,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _startRun(_Destination destination) async {
     setState(() => _starting = true);
     try {
-      await ref
-          .read(activeRunProvider.notifier)
-          .start(
+      await ref.read(activeRunProvider.notifier).start(
             destination: destination.position,
             destinationName: destination.name,
           );
       if (!mounted) return;
-      await Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const ActiveRunScreen()));
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const ActiveRunScreen()),
+      );
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(_messageFor(error))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_messageFor(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
+
+  Future<void> _startFreeDrive() async {
+    setState(() => _starting = true);
+    try {
+      await ref.read(activeRunProvider.notifier).start(freeDrive: true);
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const ActiveRunScreen()),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_messageFor(error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -236,6 +256,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final autoTrack = ref.watch(
+      activeRunProvider.select((s) => s.autoTrackEnabled),
+    );
+    final autoStatus = ref.watch(
+      activeRunProvider.select((s) => s.autoTrackStatus),
+    );
+    final territories = ref.watch(territoriesProvider).maybeWhen(
+          data: (v) => v.length,
+          orElse: () => 0,
+        );
     return Scaffold(
       body: Stack(
         children: [
@@ -330,29 +360,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      IconButton.filled(
-                        tooltip: 'Run history',
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const RunHistoryScreen(),
-                          ),
-                        ),
-                        style: IconButton.styleFrom(
-                          backgroundColor: AppColors.panel,
-                          foregroundColor: AppColors.blue,
-                        ),
-                        icon: const Icon(Icons.history_rounded),
-                      ),
                     ],
                   ),
                   if (_matches.isNotEmpty)
                     Container(
-                      margin: const EdgeInsets.only(
-                        left: 64,
-                        right: 56,
-                        top: 6,
-                      ),
+                      margin: const EdgeInsets.only(left: 64, top: 6),
                       decoration: BoxDecoration(
                         color: AppColors.panel,
                         borderRadius: BorderRadius.circular(16),
@@ -375,6 +387,99 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         },
                       ),
                     ),
+                  const Spacer(),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.panel,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: AppColors.blue.withValues(alpha: .28),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                autoTrack
+                                    ? 'AUTO-TRACK ON'
+                                    : 'AUTO-TRACK OFF',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ),
+                            Switch(
+                              value: autoTrack,
+                              activeThumbColor: AppColors.blue,
+                              onChanged: (v) => ref
+                                  .read(activeRunProvider.notifier)
+                                  .setAutoTrackEnabled(v),
+                            ),
+                          ],
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            autoStatus,
+                            style: const TextStyle(color: AppColors.muted),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        LedButton(
+                          label: 'START FREE DRIVE',
+                          icon: Icons.directions_car_filled_rounded,
+                          busy: _starting,
+                          onPressed: _startFreeDrive,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            _NavChip(
+                              icon: Icons.insights_rounded,
+                              label: 'Stats',
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const StatsScreen(),
+                                ),
+                              ),
+                            ),
+                            _NavChip(
+                              icon: Icons.public_rounded,
+                              label: 'Map $territories',
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const TerritoryScreen(),
+                                ),
+                              ),
+                            ),
+                            _NavChip(
+                              icon: Icons.emoji_events_rounded,
+                              label: 'Ranks',
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const LeaderboardScreen(),
+                                ),
+                              ),
+                            ),
+                            _NavChip(
+                              icon: Icons.history_rounded,
+                              label: 'Trips',
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const RunHistoryScreen(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -383,4 +488,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
+}
+
+class _NavChip extends StatelessWidget {
+  const _NavChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              children: [
+                Icon(icon, color: AppColors.blue),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }

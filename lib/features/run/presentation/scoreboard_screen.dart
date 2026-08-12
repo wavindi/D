@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/models/run_record.dart';
 import '../../../features/history/presentation/run_history_screen.dart';
 import '../../../shared/widgets/led_button.dart';
+import '../../../shared/widgets/speed_widgets.dart';
 
 class ScoreboardScreen extends StatelessWidget {
   const ScoreboardScreen({
@@ -18,135 +21,167 @@ class ScoreboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dist = SpeedDistribution.fromSamples(run.samples);
+    final routePoints =
+        run.samples.map((s) => LatLng(s.lat, s.lng)).toList(growable: false);
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'SCOREBOARD',
+          'TRIP STATS',
           style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
         ),
         backgroundColor: Colors.transparent,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              const Spacer(),
-              Container(
-                width: 98,
-                height: 98,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.blue, width: 3),
-                  boxShadow: const [
-                    BoxShadow(color: AppColors.blueGlow, blurRadius: 35),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.emoji_events_rounded,
-                  color: AppColors.blue,
-                  size: 48,
-                ),
-              ),
-              const SizedBox(height: 26),
-              Text(
-                autoFinished ? 'DESTINATION REACHED' : 'RUN COMPLETE',
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                run.destinationName == null
-                    ? 'Your drive has been saved.'
-                    : 'Destination: ${run.destinationName}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.muted),
-              ),
-              const SizedBox(height: 34),
-              _ResultTile(
-                icon: Icons.route_rounded,
-                label: 'TOTAL DISTANCE',
-                value: formatDistance(run.distanceMeters),
-              ),
-              const SizedBox(height: 12),
-              _ResultTile(
-                icon: Icons.speed_rounded,
-                label: 'TOP SPEED',
-                value: '${run.topSpeedKmh.toStringAsFixed(1)} km/h',
-              ),
-              const SizedBox(height: 12),
-              _ResultTile(
-                icon: Icons.av_timer_rounded,
-                label: 'AVERAGE SPEED',
-                value: '${run.averageSpeedKmh.toStringAsFixed(1)} km/h',
-              ),
-              const SizedBox(height: 12),
-              _ResultTile(
-                icon: Icons.timer_outlined,
-                label: 'TOTAL DURATION',
-                value: formatDuration(Duration(seconds: run.durationSeconds)),
-              ),
-              const Spacer(),
-              LedButton(
-                label: 'VIEW RUN HISTORY',
-                icon: Icons.history_rounded,
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const RunHistoryScreen(),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            if (routePoints.length > 1)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: SizedBox(
+                  height: 260,
+                  child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter: routePoints[routePoints.length ~/ 2],
+                      initialZoom: 13,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                      ),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.d.racing.d',
+                      ),
+                      PolylineLayer(polylines: speedPolylines(run.samples)),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('BACK TO MAP'),
+            const SizedBox(height: 18),
+            Text(
+              autoFinished ? 'DRIVE CAPTURED' : 'RUN COMPLETE',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              run.destinationName ?? 'Free drive',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.muted),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: _MetricChip(
+                    label: 'DISTANCE',
+                    value: formatDistance(run.distanceMeters),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MetricChip(
+                    label: 'DURATION',
+                    value: formatDuration(Duration(seconds: run.durationSeconds)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MetricChip(
+                    label: 'TOP SPEED',
+                    value: '${run.topSpeedKmh.toStringAsFixed(0)} km/h',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _MetricChip(
+                    label: 'AVG SPEED',
+                    value: '${run.averageSpeedKmh.toStringAsFixed(0)} km/h',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MetricChip(
+                    label: 'STOPPED',
+                    value: formatDuration(Duration(seconds: run.stoppedSeconds)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'SPEED DISTRIBUTION',
+              style: TextStyle(
+                color: AppColors.muted,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.4,
+              ),
+            ),
+            const SizedBox(height: 10),
+            SpeedDistributionBar(distribution: dist),
+            const SizedBox(height: 22),
+            LedButton(
+              label: 'VIEW RUN HISTORY',
+              icon: Icons.history_rounded,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const RunHistoryScreen(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('BACK TO MAP'),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _ResultTile extends StatelessWidget {
-  const _ResultTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-  final IconData icon;
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({required this.label, required this.value});
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
           color: AppColors.panel,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.blue.withValues(alpha: .22)),
         ),
-        child: Row(
+        child: Column(
           children: [
-            Icon(icon, color: AppColors.blue, size: 28),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.muted,
-                  fontWeight: FontWeight.w700,
-                ),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 10,
+                letterSpacing: 1.1,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+            const SizedBox(height: 6),
+            FittedBox(
+              child: Text(
+                value,
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+              ),
             ),
           ],
         ),

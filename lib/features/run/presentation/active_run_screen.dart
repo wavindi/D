@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/led_button.dart';
+import '../../../shared/widgets/speed_widgets.dart';
 import '../application/run_providers.dart';
 import 'scoreboard_screen.dart';
 
@@ -58,6 +59,7 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
     final paused = ref.watch(activeRunProvider.select((s) => s.isPaused));
     final autoFinished =
         ref.watch(activeRunProvider.select((s) => s.autoFinished));
+    final freeDrive = ref.watch(activeRunProvider.select((s) => s.isFreeDrive));
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -69,7 +71,11 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 child: Column(
                   children: [
-                    _RunStatus(paused: paused, arrived: autoFinished),
+                    _RunStatus(
+                      paused: paused,
+                      arrived: autoFinished,
+                      freeDrive: freeDrive,
+                    ),
                     const SizedBox(height: 12),
                     const _SpeedHud(),
                     const SizedBox(height: 12),
@@ -88,14 +94,16 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
                         Expanded(child: _AvgSpeedHud()),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    const Row(
-                      children: [
-                        Expanded(child: _RemainingHud()),
-                        SizedBox(width: 12),
-                        Expanded(child: _EtaHud()),
-                      ],
-                    ),
+                    if (!freeDrive) ...[
+                      const SizedBox(height: 12),
+                      const Row(
+                        children: [
+                          Expanded(child: _RemainingHud()),
+                          SizedBox(width: 12),
+                          Expanded(child: _EtaHud()),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -126,7 +134,7 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
                       ),
                     if (!autoFinished) const SizedBox(height: 12),
                     LedButton(
-                      label: autoFinished ? 'SAVE ARRIVAL' : 'FINISH RUN',
+                      label: autoFinished ? 'SAVE TRIP' : 'FINISH RUN',
                       danger: true,
                       busy: _finishing,
                       onPressed: () => _finish(auto: autoFinished),
@@ -155,7 +163,7 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
   @override
   void initState() {
     super.initState();
-    ref.listenManual<List<LatLng>>(
+    ref.listenManual(
       activeRunProvider.select((state) => state.route),
       (previous, next) {
         final previousLast =
@@ -170,6 +178,8 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
   @override
   Widget build(BuildContext context) {
     final route = ref.watch(activeRunProvider.select((state) => state.route));
+    final samples =
+        ref.watch(activeRunProvider.select((state) => state.samples));
     final destination = ref.watch(
       activeRunProvider.select((state) => state.destination),
     );
@@ -182,12 +192,7 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.d.racing.d',
         ),
-        if (route.length > 1)
-          PolylineLayer(
-            polylines: [
-              Polyline(points: route, color: AppColors.blue, strokeWidth: 7),
-            ],
-          ),
+        if (samples.length > 1) PolylineLayer(polylines: speedPolylines(samples)),
         if (route.isNotEmpty)
           CircleLayer(
             circles: [
@@ -221,17 +226,24 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
 }
 
 class _RunStatus extends StatelessWidget {
-  const _RunStatus({required this.paused, required this.arrived});
+  const _RunStatus({
+    required this.paused,
+    required this.arrived,
+    required this.freeDrive,
+  });
   final bool paused;
   final bool arrived;
+  final bool freeDrive;
 
   @override
   Widget build(BuildContext context) {
     final label = arrived
-        ? 'DESTINATION REACHED'
+        ? (freeDrive ? 'TRIP AUTO-SAVED' : 'DESTINATION REACHED')
         : paused
             ? 'RUN PAUSED'
-            : 'RUN ACTIVE';
+            : freeDrive
+                ? 'AUTO-TRACKING'
+                : 'RUN ACTIVE';
     final color = arrived
         ? AppColors.blue
         : paused
@@ -316,11 +328,11 @@ class _SpeedHud extends ConsumerWidget {
           ),
           Text(
             speed.toStringAsFixed(0),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 76,
               height: 1.05,
               fontWeight: FontWeight.w900,
-              color: AppColors.blue,
+              color: speedColor(speed),
             ),
           ),
           const Text(

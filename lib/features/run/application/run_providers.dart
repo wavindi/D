@@ -12,72 +12,100 @@ final runRepositoryProvider = Provider<RunRepository>((ref) => RunRepository());
 final runHistoryProvider = FutureProvider<List<RunRecord>>(
   (ref) => ref.watch(runRepositoryProvider).getAll(),
 );
+final drivingStatsProvider = FutureProvider<DrivingStats>(
+  (ref) => ref.watch(runRepositoryProvider).getStats(),
+);
+final territoriesProvider = FutureProvider<Set<String>>(
+  (ref) => ref.watch(runRepositoryProvider).getTerritories(),
+);
 
 class RunState {
   const RunState({
     this.isActive = false,
     this.isPaused = false,
+    this.isFreeDrive = false,
+    this.autoTrackEnabled = false,
     this.elapsed = Duration.zero,
     this.currentSpeedKmh = 0,
     this.maxSpeedKmh = 0,
     this.averageSpeedKmh = 0,
     this.distanceMeters = 0,
+    this.stoppedSeconds = 0,
     this.remainingMeters,
     this.eta,
     this.route = const [],
+    this.samples = const [],
     this.startedAt,
     this.destination,
     this.destinationName,
     this.autoFinished = false,
+    this.autoTrackStatus = 'Idle',
   });
 
   final bool isActive;
   final bool isPaused;
+  final bool isFreeDrive;
+  final bool autoTrackEnabled;
   final Duration elapsed;
   final double currentSpeedKmh;
   final double maxSpeedKmh;
   final double averageSpeedKmh;
   final double distanceMeters;
+  final int stoppedSeconds;
   final double? remainingMeters;
   final Duration? eta;
   final List<LatLng> route;
+  final List<SpeedSample> samples;
   final DateTime? startedAt;
   final LatLng? destination;
   final String? destinationName;
   final bool autoFinished;
+  final String autoTrackStatus;
 
   RunState copyWith({
     bool? isActive,
     bool? isPaused,
+    bool? isFreeDrive,
+    bool? autoTrackEnabled,
     Duration? elapsed,
     double? currentSpeedKmh,
     double? maxSpeedKmh,
     double? averageSpeedKmh,
     double? distanceMeters,
+    int? stoppedSeconds,
     double? remainingMeters,
     Duration? eta,
     List<LatLng>? route,
+    List<SpeedSample>? samples,
     DateTime? startedAt,
     LatLng? destination,
     String? destinationName,
     bool? autoFinished,
+    String? autoTrackStatus,
     bool clearEta = false,
+    bool clearDestination = false,
   }) =>
       RunState(
         isActive: isActive ?? this.isActive,
         isPaused: isPaused ?? this.isPaused,
+        isFreeDrive: isFreeDrive ?? this.isFreeDrive,
+        autoTrackEnabled: autoTrackEnabled ?? this.autoTrackEnabled,
         elapsed: elapsed ?? this.elapsed,
         currentSpeedKmh: currentSpeedKmh ?? this.currentSpeedKmh,
         maxSpeedKmh: maxSpeedKmh ?? this.maxSpeedKmh,
         averageSpeedKmh: averageSpeedKmh ?? this.averageSpeedKmh,
         distanceMeters: distanceMeters ?? this.distanceMeters,
+        stoppedSeconds: stoppedSeconds ?? this.stoppedSeconds,
         remainingMeters: remainingMeters ?? this.remainingMeters,
         eta: clearEta ? null : (eta ?? this.eta),
         route: route ?? this.route,
+        samples: samples ?? this.samples,
         startedAt: startedAt ?? this.startedAt,
-        destination: destination ?? this.destination,
-        destinationName: destinationName ?? this.destinationName,
+        destination: clearDestination ? null : (destination ?? this.destination),
+        destinationName:
+            clearDestination ? null : (destinationName ?? this.destinationName),
         autoFinished: autoFinished ?? this.autoFinished,
+        autoTrackStatus: autoTrackStatus ?? this.autoTrackStatus,
       );
 }
 
@@ -89,22 +117,34 @@ class ActiveRunController extends Notifier<RunState> {
   static const _maxAccuracyMeters = 35.0;
   static const _maxJumpMeters = 80.0;
   static const _arrivalRadiusMeters = 45.0;
+  static const _autoStartSpeedKmh = 22.0;
+  static const _autoStartHold = Duration(seconds: 6);
+  static const _autoStopSpeedKmh = 6.0;
+  static const _autoStopHold = Duration(minutes: 2);
 
   Timer? _timer;
   StreamSubscription<Position>? _positionSubscription;
+  StreamSubscription<Position>? _autoWatchSubscription;
   Duration _pausedAccumulated = Duration.zero;
   DateTime? _pauseStartedAt;
   DateTime? _runClockStart;
+  DateTime? _movingSince;
+  DateTime? _stoppedSince;
+  int _stoppedSeconds = 0;
 
   @override
   RunState build() {
-    ref.onDispose(_stopTracking);
+    ref.onDispose(() {
+      unawaited(_stopTracking());
+      unawaited(_stopAutoWatch());
+    });
     return const RunState();
   }
 
   Future<void> start({
-    required LatLng destination,
-    required String destinationName,
+    LatLng? destination,
+    String? destinationName,
+    bool freeDrive = false,
   }) async {
     if (state.isActive) return;
     await _ensureLocationAccess();
@@ -115,19 +155,35 @@ class ActiveRunController extends Notifier<RunState> {
     _runClockStart = startedAt;
     _pausedAccumulated = Duration.zero;
     _pauseStartedAt = null;
+    _stoppedSeconds = 0;
+    _movingSince = null;
+    _stoppedSince = null;
+    final point = LatLng(initial.latitude, initial.longitude);
     state = RunState(
       isActive: true,
       isPaused: false,
+      isFreeDrive: freeDrive || destination == null,
+      autoTrackEnabled: state.autoTrackEnabled,
       startedAt: startedAt,
-      route: [LatLng(initial.latitude, initial.longitude)],
+      route: [point],
+      samples: [
+        SpeedSample(
+          lat: point.latitude,
+          lng: point.longitude,
+          speedKmh: math.max(0, initial.speed * 3.6),
+        ),
+      ],
       destination: destination,
-      destinationName: destinationName,
-      remainingMeters: Geolocator.distanceBetween(
-        initial.latitude,
-        initial.longitude,
-        destination.latitude,
-        destination.longitude,
-      ),
+      destinationName: freeDrive ? 'Free drive' : destinationName,
+      remainingMeters: destination == null
+          ? null
+          : Geolocator.distanceBetween(
+              initial.latitude,
+              initial.longitude,
+              destination.latitude,
+              destination.longitude,
+            ),
+      autoTrackStatus: freeDrive ? 'Auto free-drive' : 'Manual run',
     );
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tickClock());
     const settings = LocationSettings(
@@ -137,6 +193,57 @@ class ActiveRunController extends Notifier<RunState> {
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: settings,
     ).listen(_onPosition);
+  }
+
+  Future<void> setAutoTrackEnabled(bool enabled) async {
+    state = state.copyWith(
+      autoTrackEnabled: enabled,
+      autoTrackStatus: enabled ? 'Watching for movement…' : 'Idle',
+    );
+    if (enabled) {
+      await _startAutoWatch();
+    } else {
+      await _stopAutoWatch();
+    }
+  }
+
+  Future<void> _startAutoWatch() async {
+    await _stopAutoWatch();
+    await _ensureLocationAccess();
+    _autoWatchSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 3,
+      ),
+    ).listen((position) async {
+      if (state.isActive || !state.autoTrackEnabled) return;
+      final speed = math.max(0.0, position.speed * 3.6);
+      final now = DateTime.now();
+      if (speed >= _autoStartSpeedKmh) {
+        _movingSince ??= now;
+        final held = now.difference(_movingSince!);
+        state = state.copyWith(
+          autoTrackStatus:
+              'Drive detected… ${held.inSeconds}s / ${_autoStartHold.inSeconds}s',
+          currentSpeedKmh: speed,
+        );
+        if (held >= _autoStartHold) {
+          await start(freeDrive: true);
+        }
+      } else {
+        _movingSince = null;
+        state = state.copyWith(
+          autoTrackStatus: 'Watching for movement…',
+          currentSpeedKmh: speed,
+        );
+      }
+    });
+  }
+
+  Future<void> _stopAutoWatch() async {
+    await _autoWatchSubscription?.cancel();
+    _autoWatchSubscription = null;
+    _movingSince = null;
   }
 
   void pause() {
@@ -157,13 +264,15 @@ class ActiveRunController extends Notifier<RunState> {
 
   void _tickClock() {
     if (!state.isActive || state.isPaused || _runClockStart == null) return;
-    final elapsed = DateTime.now().difference(_runClockStart!) - _pausedAccumulated;
+    final elapsed =
+        DateTime.now().difference(_runClockStart!) - _pausedAccumulated;
     final avg = elapsed.inSeconds <= 0
         ? 0.0
         : (state.distanceMeters / 1000) / (elapsed.inSeconds / 3600);
     state = state.copyWith(
       elapsed: elapsed.isNegative ? Duration.zero : elapsed,
       averageSpeedKmh: math.max(0, avg),
+      stoppedSeconds: _stoppedSeconds,
       eta: _estimateEta(state.remainingMeters, avg, state.currentSpeedKmh),
     );
   }
@@ -174,6 +283,7 @@ class ActiveRunController extends Notifier<RunState> {
 
     final point = LatLng(position.latitude, position.longitude);
     final route = [...state.route];
+    final samples = [...state.samples];
     var distance = state.distanceMeters;
     if (route.isNotEmpty) {
       final previous = route.last;
@@ -183,15 +293,33 @@ class ActiveRunController extends Notifier<RunState> {
         point.latitude,
         point.longitude,
       );
-      // Ignore GPS jumps / multipath spikes.
       if (step > _maxJumpMeters) return;
-      // Ignore tiny noise when nearly stationary.
-      if (step < 1.5 && (position.speed * 3.6) < 1.5) return;
-      distance += step;
+      if (step < 1.5 && (position.speed * 3.6) < 1.5) {
+        // count near-stop
+      } else {
+        distance += step;
+      }
     }
     route.add(point);
-
     final speed = math.max(0.0, position.speed * 3.6);
+    samples.add(SpeedSample(lat: point.latitude, lng: point.longitude, speedKmh: speed));
+
+    final now = DateTime.now();
+    if (speed < _autoStopSpeedKmh) {
+      _stoppedSince ??= now;
+      _stoppedSeconds += 1;
+      if (state.isFreeDrive &&
+          state.autoTrackEnabled &&
+          now.difference(_stoppedSince!) >= _autoStopHold &&
+          distance > 200) {
+        state = state.copyWith(autoFinished: true, isPaused: true, currentSpeedKmh: 0);
+        unawaited(_stopTracking());
+        return;
+      }
+    } else {
+      _stoppedSince = null;
+    }
+
     final remaining = state.destination == null
         ? null
         : Geolocator.distanceBetween(
@@ -211,8 +339,10 @@ class ActiveRunController extends Notifier<RunState> {
       averageSpeedKmh: math.max(0, avg),
       distanceMeters: distance,
       remainingMeters: remaining,
+      stoppedSeconds: _stoppedSeconds,
       eta: _estimateEta(remaining, avg, speed),
       route: List.unmodifiable(route),
+      samples: List.unmodifiable(samples),
     );
 
     if (remaining != null && remaining <= _arrivalRadiusMeters) {
@@ -221,7 +351,11 @@ class ActiveRunController extends Notifier<RunState> {
     }
   }
 
-  Duration? _estimateEta(double? remainingMeters, double avgKmh, double currentKmh) {
+  Duration? _estimateEta(
+    double? remainingMeters,
+    double avgKmh,
+    double currentKmh,
+  ) {
     if (remainingMeters == null || remainingMeters <= 0) return Duration.zero;
     final speed = currentKmh > 5 ? currentKmh : (avgKmh > 5 ? avgKmh : 0);
     if (speed <= 0) return null;
@@ -250,6 +384,7 @@ class ActiveRunController extends Notifier<RunState> {
       currentSpeedKmh: 0,
       elapsed: safeElapsed,
       averageSpeedKmh: math.max(0, avg),
+      stoppedSeconds: _stoppedSeconds,
     );
     state = finalState;
     await _stopTracking();
@@ -260,10 +395,21 @@ class ActiveRunController extends Notifier<RunState> {
       topSpeedKmh: finalState.maxSpeedKmh,
       averageSpeedKmh: finalState.averageSpeedKmh,
       destinationName: finalState.destinationName,
+      stoppedSeconds: finalState.stoppedSeconds,
+      samples: finalState.samples,
     );
     final saved = await ref.read(runRepositoryProvider).save(run);
     ref.invalidate(runHistoryProvider);
-    state = const RunState();
+    ref.invalidate(drivingStatsProvider);
+    ref.invalidate(territoriesProvider);
+    final keepAuto = finalState.autoTrackEnabled;
+    state = RunState(
+      autoTrackEnabled: keepAuto,
+      autoTrackStatus: keepAuto ? 'Watching for movement…' : 'Idle',
+    );
+    if (keepAuto) {
+      await _startAutoWatch();
+    }
     return saved;
   }
 
