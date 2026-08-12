@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
-import 'shared/widgets/app_shell.dart';
+import 'features/auth/presentation/auth_gate.dart';
 
 class DApp extends StatelessWidget {
   const DApp({super.key});
@@ -32,7 +32,7 @@ class DApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: const AppShell(),
+      home: const AuthGate(),
     );
   }
 }
