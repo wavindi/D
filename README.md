@@ -8,8 +8,10 @@
 - Starts in Tunis, Tunisia and recentres on the driver's live GPS location when permission is granted
 - Destination search with Tunisia presets or direct `latitude, longitude` coordinates
 - Route-ready confirmation sheet showing the current-position start and selected destination
-- Live active-run HUD for speed, elapsed time, maximum speed, and GPS route polyline
-- SQLite-backed run history with a post-run scoreboard
+- Live active-run HUD for speed, elapsed time, distance, max/average speed, remaining distance and ETA
+- Pause / resume during a run
+- GPS noise filtering and auto-finish near the destination
+- Local run history (SharedPreferences / browser local storage on web) with a post-run scoreboard
 
 ## Technology
 
@@ -17,7 +19,7 @@
 - Riverpod for state management
 - `flutter_map` and OpenStreetMap tiles
 - `geolocator` for device GPS, speed, and distance calculations
-- `sqflite` for local run history
+- `shared_preferences` for portable local run history (mobile + web)
 
 ## Run the app
 
@@ -29,10 +31,10 @@ flutter run
 For a browser build:
 
 ```bash
-flutter build web --release --no-wasm-dry-run
+flutter build web --release --base-href /
 ```
 
-Use a physical device for meaningful GPS speed and distance data. Android and iOS location permission boilerplate is already configured.
+Use a physical device or HTTPS browser host for meaningful GPS speed and distance data. Android and iOS location permission boilerplate is already configured. On web, allow location access when prompted.
 
 ## Map usage
 
@@ -48,7 +50,6 @@ lib/
 │   ├── theme/app_theme.dart
 │   └── utils/formatters.dart
 ├── data/
-│   ├── database/app_database.dart
 │   └── repositories/run_repository.dart
 ├── domain/models/run_record.dart
 ├── features/

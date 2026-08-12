@@ -78,6 +78,13 @@ class RunHistoryScreen extends ConsumerWidget {
                               ),
                             ],
                           ),
+                          if (run.destinationName != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              run.destinationName!,
+                              style: const TextStyle(color: AppColors.muted),
+                            ),
+                          ],
                           const Divider(height: 28),
                           Row(
                             children: [
@@ -86,9 +93,14 @@ class RunHistoryScreen extends ConsumerWidget {
                                 value: formatDistance(run.distanceMeters),
                               ),
                               _HistoryStat(
-                                label: 'TOP SPEED',
+                                label: 'TOP',
                                 value:
-                                    '${run.topSpeedKmh.toStringAsFixed(1)} km/h',
+                                    '${run.topSpeedKmh.toStringAsFixed(0)} km/h',
+                              ),
+                              _HistoryStat(
+                                label: 'AVG',
+                                value:
+                                    '${run.averageSpeedKmh.toStringAsFixed(0)} km/h',
                               ),
                               _HistoryStat(
                                 label: 'TIME',
