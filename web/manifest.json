@@ -1,11 +1,11 @@
 {
-    "name": "d",
-    "short_name": "d",
+    "name": "D Drive Tracker",
+    "short_name": "D",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#05070A",
+    "theme_color": "#05070A",
+    "description": "GPS drive tracker: route, speed, max, average and time.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

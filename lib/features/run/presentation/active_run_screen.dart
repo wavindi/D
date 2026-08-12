@@ -67,51 +67,58 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
           children: [
             const _TrackingMap(),
             SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: Column(
-                  children: [
-                    _RunStatus(
-                      paused: paused,
-                      arrived: autoFinished,
-                      freeDrive: freeDrive,
-                    ),
-                    const SizedBox(height: 12),
-                    const _SpeedHud(),
-                    const SizedBox(height: 12),
-                    const Row(
-                      children: [
-                        Expanded(child: _ElapsedHud()),
-                        SizedBox(width: 12),
-                        Expanded(child: _DistanceHud()),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const Row(
-                      children: [
-                        Expanded(child: _MaxSpeedHud()),
-                        SizedBox(width: 12),
-                        Expanded(child: _AvgSpeedHud()),
-                      ],
-                    ),
-                    if (!freeDrive) ...[
-                      const SizedBox(height: 12),
-                      const Row(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxHeight < 780;
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(12, compact ? 8 : 16, 12, 0),
+                    child: SingleChildScrollView(
+                      child: Column(
                         children: [
-                          Expanded(child: _RemainingHud()),
-                          SizedBox(width: 12),
-                          Expanded(child: _EtaHud()),
+                          _RunStatus(
+                            paused: paused,
+                            arrived: autoFinished,
+                            freeDrive: freeDrive,
+                          ),
+                          SizedBox(height: compact ? 8 : 12),
+                          _SpeedHud(compact: compact),
+                          SizedBox(height: compact ? 8 : 12),
+                          const Row(
+                            children: [
+                              Expanded(child: _ElapsedHud()),
+                              SizedBox(width: 10),
+                              Expanded(child: _DistanceHud()),
+                            ],
+                          ),
+                          SizedBox(height: 10),
+                          const Row(
+                            children: [
+                              Expanded(child: _MaxSpeedHud()),
+                              SizedBox(width: 10),
+                              Expanded(child: _AvgSpeedHud()),
+                            ],
+                          ),
+                          if (!freeDrive && !compact) ...[
+                            const SizedBox(height: 10),
+                            const Row(
+                              children: [
+                                Expanded(child: _RemainingHud()),
+                                SizedBox(width: 10),
+                                Expanded(child: _EtaHud()),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
-                    ],
-                  ],
-                ),
+                    ),
+                  );
+                },
               ),
             ),
             Positioned(
-              left: 16,
-              right: 16,
-              bottom: 24,
+              left: 12,
+              right: 12,
+              bottom: 12,
               child: SafeArea(
                 top: false,
                 child: Column(
@@ -328,7 +335,8 @@ class _PulseDotState extends State<_PulseDot>
 }
 
 class _SpeedHud extends ConsumerWidget {
-  const _SpeedHud();
+  const _SpeedHud({this.compact = false});
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -345,7 +353,7 @@ class _SpeedHud extends ConsumerWidget {
           Text(
             speed.toStringAsFixed(0),
             style: TextStyle(
-              fontSize: 76,
+              fontSize: compact ? 56 : 76,
               height: 1.05,
               fontWeight: FontWeight.w900,
               color: speedColor(speed),
@@ -483,7 +491,7 @@ class _HudPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppColors.panel,
           borderRadius: BorderRadius.circular(22),

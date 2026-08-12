@@ -310,10 +310,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxHeight < 760;
+                return Padding(
+                  padding: EdgeInsets.fromLTRB(12, compact ? 10 : 16, 12, 12),
+                  child: Column(
+                    children: [
                   Row(
                     children: [
                       Container(
@@ -486,8 +489,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ),
                   ),
-                ],
-              ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
