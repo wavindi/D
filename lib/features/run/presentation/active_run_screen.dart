@@ -183,6 +183,7 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
     final destination = ref.watch(
       activeRunProvider.select((state) => state.destination),
     );
+    final startPoint = route.isEmpty ? null : route.first;
     final initial = route.isEmpty ? const LatLng(36.8065, 10.1815) : route.last;
     return FlutterMap(
       mapController: _controller,
@@ -193,6 +194,21 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
           userAgentPackageName: 'com.d.racing.d',
         ),
         if (samples.length > 1) PolylineLayer(polylines: speedPolylines(samples)),
+        if (startPoint != null)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: startPoint,
+                width: 40,
+                height: 40,
+                child: const Icon(
+                  Icons.trip_origin_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+            ],
+          ),
         if (route.isNotEmpty)
           CircleLayer(
             circles: [

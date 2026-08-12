@@ -174,7 +174,9 @@ class ActiveRunController extends Notifier<RunState> {
         ),
       ],
       destination: destination,
-      destinationName: freeDrive ? 'Free drive' : destinationName,
+      destinationName: freeDrive
+          ? 'From current location'
+          : (destinationName ?? 'Destination run'),
       remainingMeters: destination == null
           ? null
           : Geolocator.distanceBetween(
@@ -183,7 +185,9 @@ class ActiveRunController extends Notifier<RunState> {
               destination.latitude,
               destination.longitude,
             ),
-      autoTrackStatus: freeDrive ? 'Auto free-drive' : 'Manual run',
+      autoTrackStatus: freeDrive
+          ? 'Recording from your location'
+          : 'Manual run',
     );
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tickClock());
     const settings = LocationSettings(

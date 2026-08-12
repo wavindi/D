@@ -431,10 +431,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         const SizedBox(height: 12),
                         LedButton(
-                          label: 'START FREE DRIVE',
-                          icon: Icons.directions_car_filled_rounded,
+                          label: 'START TRIP',
+                          icon: Icons.play_arrow_rounded,
                           busy: _starting,
                           onPressed: _startFreeDrive,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Starts from your live GPS. Traces the road, speed, max speed, average speed and time.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppColors.muted, fontSize: 12),
                         ),
                         const SizedBox(height: 12),
                         Row(
