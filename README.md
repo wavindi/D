@@ -96,7 +96,16 @@ Current production layout:
 - Flutter web: `/home/dali/user-files/test-site`
 - API: `/home/dali/user-files/d-api`
 - SQLite: `/home/dali/user-files/d-api/data/d.db`
+- Private real-data backups: `/home/dali/user-files/d-api/realdata`
 - API service: `systemctl --user status d-api.service`
+
+Create a consistent private backup without copying SQLite while it is being written:
+
+```bash
+python3 server/backup_realdata.py --label manual
+```
+
+The backup script verifies SQLite integrity, prints user/trip counts and a SHA-256 checksum, applies owner-only permissions, and updates `realdata/latest.db`. Real databases, password hashes, and user data are intentionally excluded from GitHub.
 
 ## Safety
 
