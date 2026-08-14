@@ -310,11 +310,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
             ],
           ),
-          const Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(painter: _RadarGridPainter()),
-            ),
-          ),
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -505,7 +500,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                             const SizedBox(height: 12),
                             LedButton(
-                              label: 'IGNITION • FREE DRIVE',
+                              label: 'START FREE DRIVE',
                               icon: Icons.play_arrow_rounded,
                               busy: _starting,
                               onPressed: _startFreeDrive,
@@ -563,31 +558,6 @@ class _MapPill extends StatelessWidget {
       ],
     ),
   );
-}
-
-class _RadarGridPainter extends CustomPainter {
-  const _RadarGridPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.blue.withValues(alpha: .075)
-      ..strokeWidth = 1;
-    const gap = 54.0;
-    for (var x = 0.0; x < size.width; x += gap) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (var y = 0.0; y < size.height; y += gap) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-    final center = Offset(size.width / 2, size.height / 2);
-    for (var radius = 75.0; radius < size.longestSide; radius += 75) {
-      canvas.drawCircle(center, radius, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _RadarGridPainter oldDelegate) => false;
 }
 
 class _RoundMapAction extends StatelessWidget {

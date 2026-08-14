@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/cyber_widgets.dart';
 import '../../run/application/run_providers.dart';
 
 class LeaderboardScreen extends ConsumerWidget {
@@ -22,13 +20,11 @@ class LeaderboardScreen extends ConsumerWidget {
                 onPressed: onMenu,
                 icon: const Icon(Icons.menu_rounded),
               ),
-        title: Text(
-          'TURF WAR // ROSTER',
-          style: GoogleFonts.orbitron(
-            fontSize: 17,
-            fontWeight: FontWeight.w900,
-          ),
+        title: const Text(
+          'LEADERBOARD',
+          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
         ),
+        backgroundColor: Colors.transparent,
       ),
       body: history.when(
         loading: () => const Center(
@@ -36,83 +32,117 @@ class LeaderboardScreen extends ConsumerWidget {
         ),
         error: (e, _) => Center(child: Text('$e')),
         data: (runs) {
-          final top = runs.isEmpty
+          final yourTop = runs.isEmpty
               ? 0.0
               : runs.map((r) => r.topSpeedKmh).reduce((a, b) => a > b ? a : b);
-          final board = <_Driver>[
-            const _Driver('NIGHTSHIFT', 'RX-7 FD', 113),
-            const _Driver('LUCAS NOVAK', 'M2', 109),
-            const _Driver('PRIYA K.', 'C63', 108),
-            _Driver('YOU', 'D DRIVER', top),
-            const _Driver('MATEO COHEN', 'GOLF R', 106),
-            const _Driver('EMMA KIM', 'CHARGER', 105),
+          final yourAvg = runs.isEmpty
+              ? 0.0
+              : runs.map((r) => r.averageSpeedKmh).reduce((a, b) => a + b) /
+                    runs.length;
+          final board = [
+            _Row('Amara Cohen', 'Golf R', 113, true),
+            _Row('Lucas Novak', 'M2', 109, false),
+            _Row('Priya Kowalski', 'C63', 108, false),
+            _Row('You', 'D Driver', yourTop, true),
+            _Row('Mateo Cohen', 'Golf R', 106, false),
+            _Row('Emma Kim', 'Charger', 105, false),
+            _Row('Noah Bauer', 'M5', 105, false),
           ]..sort((a, b) => b.speed.compareTo(a.speed));
-          final you = board.firstWhere((d) => d.name == 'YOU');
-          final rank = board.indexOf(you) + 1;
-          final ahead = rank == 1 ? 0 : board[rank - 2].speed - you.speed;
+
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              CyberPanel(
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.panel,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.blue.withValues(alpha: .25),
+                  ),
+                ),
                 child: Row(
                   children: [
                     Expanded(
-                      child: _Readout(
-                        label: 'TOP SPEED',
-                        value: '${top.toStringAsFixed(0)} KM/H',
+                      child: _Mini(
+                        label: 'YOUR TOP',
+                        value: '${yourTop.toStringAsFixed(0)} km/h',
                       ),
                     ),
                     Expanded(
-                      child: _Readout(
-                        label: 'CURRENT RANK',
-                        value: '#${rank.toString().padLeft(2, '0')}',
+                      child: _Mini(
+                        label: 'YOUR AVG',
+                        value: '${yourAvg.toStringAsFixed(0)} km/h',
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
-              Text(
-                'RIVAL FREQUENCY // LOCAL NETWORK',
-                style: GoogleFonts.rajdhani(
-                  color: AppColors.muted,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
-                ),
+              const SizedBox(height: 16),
+              const Text(
+                'Local + demo drivers (online multiplayer coming next)',
+                style: TextStyle(color: AppColors.muted),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               for (var i = 0; i < board.length; i++)
-                if (board[i].name != 'YOU')
-                  _RosterRow(rank: i + 1, driver: board[i]),
-              const SizedBox(height: 8),
-              CyberPanel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CyberLabel('YOUR RANK // #$rank', color: AppColors.blue),
-                    const SizedBox(height: 6),
-                    Text(
-                      'YOU // ${you.speed.toStringAsFixed(0)} KM/H',
-                      style: GoogleFonts.orbitron(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                      ),
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: board[i].name == 'You'
+                        ? AppColors.blue.withValues(alpha: .12)
+                        : AppColors.panel,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: i == 0
+                          ? const Color(0xFFFFD700)
+                          : AppColors.blue.withValues(alpha: .18),
                     ),
-                    const SizedBox(height: 12),
-                    RpmProgressBar(value: rank == 1 ? 1 : .62),
-                    const SizedBox(height: 8),
-                    Text(
-                      rank == 1
-                          ? 'YOU OWN THE NIGHT'
-                          : '${ahead.toStringAsFixed(0)} KM/H TO NEXT RANK',
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 11,
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: i == 0
+                            ? const Color(0xFFFFD700)
+                            : AppColors.blue.withValues(alpha: .2),
+                        foregroundColor: Colors.white,
+                        child: Text(
+                          '${i + 1}',
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              board[i].name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              board[i].car,
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '${board[i].speed.toStringAsFixed(0)} km/h',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.blue,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           );
         },
@@ -121,90 +151,36 @@ class LeaderboardScreen extends ConsumerWidget {
   }
 }
 
-class _Driver {
-  const _Driver(this.name, this.car, this.speed);
+class _Row {
+  _Row(this.name, this.car, this.speed, this.highlight);
   final String name;
   final String car;
   final double speed;
+  final bool highlight;
 }
 
-class _Readout extends StatelessWidget {
-  const _Readout({required this.label, required this.value});
+class _Mini extends StatelessWidget {
+  const _Mini({required this.label, required this.value});
   final String label;
   final String value;
+
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      CyberLabel(label),
-      const SizedBox(height: 5),
+      Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.muted,
+          fontSize: 11,
+          letterSpacing: 1.1,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      const SizedBox(height: 6),
       Text(
         value,
-        style: GoogleFonts.orbitron(
-          color: AppColors.blue,
-          fontWeight: FontWeight.w900,
-          fontSize: 16,
-        ),
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
       ),
     ],
-  );
-}
-
-class _RosterRow extends StatelessWidget {
-  const _RosterRow({required this.rank, required this.driver});
-  final int rank;
-  final _Driver driver;
-  @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 9),
-    padding: const EdgeInsets.all(13),
-    decoration: BoxDecoration(
-      color: AppColors.panel,
-      border: Border.all(
-        color: rank == 1
-            ? const Color(0xFFFFD45C)
-            : AppColors.blue.withValues(alpha: .18),
-      ),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Row(
-      children: [
-        SizedBox(
-          width: 32,
-          child: Text(
-            '#${rank.toString().padLeft(2, '0')}',
-            style: GoogleFonts.orbitron(
-              color: rank == 1 ? const Color(0xFFFFD45C) : AppColors.muted,
-              fontSize: 12,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                driver.name,
-                style: GoogleFonts.rajdhani(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                ),
-              ),
-              Text(
-                driver.car,
-                style: const TextStyle(color: AppColors.muted, fontSize: 11),
-              ),
-            ],
-          ),
-        ),
-        Text(
-          '${driver.speed.toStringAsFixed(0)} KM/H',
-          style: GoogleFonts.orbitron(
-            color: AppColors.blue,
-            fontWeight: FontWeight.w900,
-            fontSize: 13,
-          ),
-        ),
-      ],
-    ),
   );
 }

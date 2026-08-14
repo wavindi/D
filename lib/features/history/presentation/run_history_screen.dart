@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -22,35 +21,43 @@ class RunHistoryScreen extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.panel,
-        title: Text(
-          'ERASE TELEMETRY?',
-          style: GoogleFonts.orbitron(fontSize: 17),
-        ),
-        content: const Text(
-          'This removes the time slip, stats, and territory from this device.',
+        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+        title: const Text('Delete this trip?'),
+        content: Text(
+          'This removes the ${formatDistance(run.distanceMeters)} trip from your history and territory.',
+          style: const TextStyle(color: AppColors.muted),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('CANCEL'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('KEEP TRIP'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('ERASE'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('DELETE'),
           ),
         ],
       ),
     );
     if (confirmed != true || !context.mounted) return;
-    await ref.read(runRepositoryProvider).delete(run);
-    ref.invalidate(runHistoryProvider);
-    ref.invalidate(drivingStatsProvider);
-    ref.invalidate(territoriesProvider);
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Time slip erased.')));
+
+    try {
+      await ref.read(runRepositoryProvider).delete(run);
+      ref.invalidate(runHistoryProvider);
+      ref.invalidate(drivingStatsProvider);
+      ref.invalidate(territoriesProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Trip deleted from your history.')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not delete trip: $error')),
+        );
+      }
     }
   }
 
@@ -66,25 +73,26 @@ class RunHistoryScreen extends ConsumerWidget {
                 onPressed: onMenu,
                 icon: const Icon(Icons.menu_rounded),
               ),
-        title: Text(
-          'TELEMETRY LOG',
-          style: GoogleFonts.orbitron(
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-          ),
+        title: const Text(
+          'RUN HISTORY',
+          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
         ),
+        backgroundColor: Colors.transparent,
       ),
       body: history.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.blue),
         ),
-        error: (error, _) => Center(child: Text('LOG OFFLINE // $error')),
+        error: (error, _) => _Message(
+          icon: Icons.error_outline,
+          title: 'History unavailable',
+          subtitle: error.toString(),
+        ),
         data: (runs) => runs.isEmpty
-            ? Center(
-                child: Text(
-                  'NO TIME SLIPS RECORDED',
-                  style: GoogleFonts.orbitron(color: AppColors.muted),
-                ),
+            ? const _Message(
+                icon: Icons.route_rounded,
+                title: 'No runs yet',
+                subtitle: 'Your completed drives will appear here.',
               )
             : RefreshIndicator(
                 onRefresh: () => ref.refresh(runHistoryProvider.future),
@@ -92,15 +100,15 @@ class RunHistoryScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(16),
                   itemCount: runs.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (_, index) => _TimeSlipCard(
+                  itemBuilder: (_, index) => _HistoryCard(
                     run: runs[index],
                     index: index,
+                    onDelete: () => _deleteTrip(context, ref, runs[index]),
                     onOpen: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => ScoreboardScreen(run: runs[index]),
                       ),
                     ),
-                    onDelete: () => _deleteTrip(context, ref, runs[index]),
                   ),
                 ),
               ),
@@ -109,118 +117,104 @@ class RunHistoryScreen extends ConsumerWidget {
   }
 }
 
-class _TimeSlipCard extends StatelessWidget {
-  const _TimeSlipCard({
+class _HistoryCard extends StatelessWidget {
+  const _HistoryCard({
     required this.run,
     required this.index,
-    required this.onOpen,
     required this.onDelete,
+    required this.onOpen,
   });
   final RunRecord run;
   final int index;
-  final VoidCallback onOpen;
   final VoidCallback onDelete;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) => TweenAnimationBuilder<double>(
-    duration: Duration(milliseconds: 180 + index * 45),
+    duration: Duration(milliseconds: 240 + (index * 55)),
+    curve: Curves.easeOutCubic,
     tween: Tween(begin: 0, end: 1),
     builder: (context, value, child) => Opacity(
       opacity: value,
       child: Transform.translate(
-        offset: Offset(18 * (1 - value), 0),
+        offset: Offset(0, 18 * (1 - value)),
         child: child,
       ),
     ),
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onOpen,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-          decoration: BoxDecoration(
-            color: AppColors.panel,
-            borderRadius: BorderRadius.circular(14),
-            border: Border(
-              left: const BorderSide(color: AppColors.blue, width: 4),
-              top: BorderSide(color: AppColors.blue.withValues(alpha: .25)),
-              right: BorderSide(color: AppColors.blue.withValues(alpha: .25)),
-              bottom: BorderSide(color: AppColors.blue.withValues(alpha: .25)),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.sensors_rounded,
-                    color: AppColors.blue,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Text(
-                      DateFormat('EEE, d MMM y • HH:mm').format(run.startedAt),
-                      style: GoogleFonts.rajdhani(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: onDelete,
-                    icon: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                run.destinationName ?? 'FROM CURRENT LOCATION',
-                style: GoogleFonts.rajdhani(
-                  color: AppColors.muted,
-                  fontSize: 15,
+    child: GestureDetector(
+      onTap: onOpen,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.panel,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.blue.withValues(alpha: .2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.sports_motorsports_rounded,
+                  color: AppColors.blue,
                 ),
-              ),
-              const Divider(height: 23),
-              Row(
-                children: [
-                  _SlipStat(
-                    'DIST',
-                    formatDistance(run.distanceMeters),
-                    highlighted: true,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    DateFormat('EEE, d MMM y • HH:mm').format(run.startedAt),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  _SlipStat(
-                    'MAX',
-                    '${run.topSpeedKmh.toStringAsFixed(0)} km/h',
-                    highlighted: true,
+                ),
+                IconButton(
+                  tooltip: 'Delete trip',
+                  onPressed: onDelete,
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.muted,
                   ),
-                  _SlipStat(
-                    'AVG',
-                    '${run.averageSpeedKmh.toStringAsFixed(0)} km/h',
-                  ),
-                  _SlipStat(
-                    'TIME',
-                    formatDuration(Duration(seconds: run.durationSeconds)),
-                  ),
-                ],
+                ),
+              ],
+            ),
+            if (run.destinationName != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                run.destinationName!,
+                style: const TextStyle(color: AppColors.muted),
               ),
             ],
-          ),
+            const Divider(height: 28),
+            Row(
+              children: [
+                _HistoryStat(
+                  label: 'DISTANCE',
+                  value: formatDistance(run.distanceMeters),
+                ),
+                _HistoryStat(
+                  label: 'TOP',
+                  value: '${run.topSpeedKmh.toStringAsFixed(0)} km/h',
+                ),
+                _HistoryStat(
+                  label: 'AVG',
+                  value: '${run.averageSpeedKmh.toStringAsFixed(0)} km/h',
+                ),
+                _HistoryStat(
+                  label: 'TIME',
+                  value: formatDuration(Duration(seconds: run.durationSeconds)),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     ),
   );
 }
 
-class _SlipStat extends StatelessWidget {
-  const _SlipStat(this.label, this.value, {this.highlighted = false});
+class _HistoryStat extends StatelessWidget {
+  const _HistoryStat({required this.label, required this.value});
   final String label;
   final String value;
-  final bool highlighted;
 
   @override
   Widget build(BuildContext context) => Expanded(
@@ -229,25 +223,55 @@ class _SlipStat extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.rajdhani(
+          style: const TextStyle(
             color: AppColors.muted,
             fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.2,
+            letterSpacing: 1,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 5),
         FittedBox(
           child: Text(
             value,
-            style: GoogleFonts.orbitron(
-              color: highlighted ? AppColors.blue : Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w800),
           ),
         ),
       ],
+    ),
+  );
+}
+
+class _Message extends StatelessWidget {
+  const _Message({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(30),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 56, color: AppColors.blue),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.muted),
+          ),
+        ],
+      ),
     ),
   );
 }

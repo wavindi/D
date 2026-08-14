@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -76,7 +75,6 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen>
     final destinationName = ref.watch(
       activeRunProvider.select((s) => s.destinationName),
     );
-    final accuracy = ref.watch(activeRunProvider.select((s) => s.gpsAccuracy));
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -95,7 +93,6 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen>
                           paused: paused,
                           arrived: autoFinished,
                           freeDrive: freeDrive,
-                          accuracy: accuracy,
                         ),
                         SizedBox(height: compact ? 8 : 12),
                         _SpeedHud(compact: compact),
@@ -278,28 +275,21 @@ class _RunStatus extends StatelessWidget {
     required this.paused,
     required this.arrived,
     required this.freeDrive,
-    required this.accuracy,
   });
   final bool paused;
   final bool arrived;
   final bool freeDrive;
-  final double? accuracy;
 
   @override
   Widget build(BuildContext context) {
-    final weakSignal = accuracy != null && accuracy! > 35;
-    final label = weakSignal
-        ? 'NO SIGNAL • HOLDING TELEMETRY'
-        : arrived
+    final label = arrived
         ? (freeDrive ? 'TRIP AUTO-SAVED' : 'DESTINATION REACHED')
         : paused
         ? 'RUN PAUSED'
         : freeDrive
         ? 'AUTO-TRACKING'
         : 'RUN ACTIVE';
-    final color = weakSignal
-        ? AppColors.danger
-        : arrived
+    final color = arrived
         ? AppColors.blue
         : paused
         ? AppColors.muted
@@ -315,24 +305,19 @@ class _RunStatus extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (!paused && !arrived && !weakSignal) const _PulseDot(),
-            if (!paused && !arrived && !weakSignal) const SizedBox(width: 9),
-            if (paused || arrived || weakSignal)
+            if (!paused && !arrived) const _PulseDot(),
+            if (!paused && !arrived) const SizedBox(width: 9),
+            if (paused || arrived)
               Icon(
-                weakSignal
-                    ? Icons.sensors_off_rounded
-                    : (arrived
-                          ? Icons.flag_circle_rounded
-                          : Icons.pause_circle_filled),
+                arrived ? Icons.flag_circle_rounded : Icons.pause_circle_filled,
                 size: 16,
                 color: color,
               ),
-            if (paused || arrived || weakSignal) const SizedBox(width: 9),
+            if (paused || arrived) const SizedBox(width: 9),
             Text(
               label,
-              style: GoogleFonts.rajdhani(
+              style: TextStyle(
                 fontWeight: FontWeight.w800,
-                fontSize: 14,
                 letterSpacing: 1.4,
                 color: color,
               ),
@@ -384,13 +369,9 @@ class _SpeedHud extends ConsumerWidget {
       compact: compact,
       child: Column(
         children: [
-          Text(
+          const Text(
             'CURRENT SPEED',
-            style: GoogleFonts.rajdhani(
-              color: AppColors.muted,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2.4,
-            ),
+            style: TextStyle(color: AppColors.muted, letterSpacing: 2),
           ),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
@@ -401,7 +382,7 @@ class _SpeedHud extends ConsumerWidget {
             child: Text(
               speed.toStringAsFixed(0),
               key: ValueKey(speed.toStringAsFixed(0)),
-              style: GoogleFonts.orbitron(
+              style: TextStyle(
                 fontSize: compact ? 52 : 62,
                 height: 1.05,
                 fontWeight: FontWeight.w900,
@@ -409,9 +390,9 @@ class _SpeedHud extends ConsumerWidget {
               ),
             ),
           ),
-          Text(
+          const Text(
             'KM/H',
-            style: GoogleFonts.orbitron(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               letterSpacing: 4,
@@ -476,7 +457,7 @@ class _TelemetryValue extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.rajdhani(
+          style: const TextStyle(
             color: AppColors.muted,
             fontSize: 9,
             letterSpacing: 1.1,
@@ -487,10 +468,7 @@ class _TelemetryValue extends StatelessWidget {
         FittedBox(
           child: Text(
             suffix == null ? value : '$value $suffix',
-            style: GoogleFonts.orbitron(
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
         ),
       ],
