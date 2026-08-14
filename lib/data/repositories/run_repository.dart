@@ -12,6 +12,7 @@ class RunRepository {
   static const _runsKey = 'd_racing_runs_v3';
   static const _territoryKey = 'd_racing_territories_v1';
   static const _unsyncedStartsKey = 'd_racing_unsynced_starts_v1';
+  static const _deletedTripKeys = 'd_racing_deleted_trip_keys_v1';
 
   Future<RunRecord> save(RunRecord run) async {
     // Signed-in users store the canonical trip on the VPS. Keep a local copy
@@ -48,6 +49,9 @@ class RunRepository {
       stoppedSeconds: run.stoppedSeconds,
       samples: run.samples,
     );
+    final deletedKeys = {...?prefs.getStringList(_deletedTripKeys)};
+    deletedKeys.remove(_tripKey(saved));
+    await prefs.setStringList(_deletedTripKeys, deletedKeys.toList());
     final next = [
       saved,
       ...existing.where(
@@ -83,12 +87,16 @@ class RunRepository {
       try {
         final remote = await DApi.instance.fetchTrips();
         final prefs = await SharedPreferences.getInstance();
+        final deletedKeys = {...?prefs.getStringList(_deletedTripKeys)};
+        final visible = remote
+            .where((run) => !deletedKeys.contains(_tripKey(run)))
+            .toList(growable: false);
         await prefs.setString(
           _runsKey,
-          jsonEncode(remote.map((e) => e.toMap()).toList(growable: false)),
+          jsonEncode(visible.map((e) => e.toMap()).toList(growable: false)),
         );
         await prefs.setStringList(_unsyncedStartsKey, const []);
-        return remote;
+        return visible;
       } catch (_) {
         // Use the local cache if the VPS is temporarily unreachable.
       }
@@ -103,8 +111,16 @@ class RunRepository {
     final unsyncedStarts = {...?prefs.getStringList(_unsyncedStartsKey)};
     final isUnsynced = unsyncedStarts.contains(run.startedAt.toIso8601String());
     if (DApi.instance.token != null && run.id != null && !isUnsynced) {
-      await DApi.instance.deleteTrip(run.id!);
+      try {
+        await DApi.instance.deleteTrip(run.id!);
+      } catch (_) {
+        // The app may be ahead of the deployed API. Keep a local tombstone so
+        // deletion is still immediate and the remote cache cannot restore it.
+      }
     }
+    final deletedKeys = {...?prefs.getStringList(_deletedTripKeys)};
+    deletedKeys.add(_tripKey(run));
+    await prefs.setStringList(_deletedTripKeys, deletedKeys.toList());
     final remaining = (await _getLocal())
         .where((item) => !_isSameRun(item, run))
         .toList(growable: false);
@@ -126,10 +142,12 @@ class RunRepository {
         prefs.getString(_runsKey) ?? prefs.getString('d_racing_runs_v2');
     if (raw == null || raw.isEmpty) return const [];
     final list = jsonDecode(raw) as List<dynamic>;
+    final deletedKeys = {...?prefs.getStringList(_deletedTripKeys)};
     return list
         .map(
           (item) => RunRecord.fromMap(Map<String, Object?>.from(item as Map)),
         )
+        .where((run) => !deletedKeys.contains(_tripKey(run)))
         .toList(growable: false);
   }
 
@@ -143,6 +161,9 @@ class RunRepository {
     return first.startedAt.toIso8601String() ==
         second.startedAt.toIso8601String();
   }
+
+  String _tripKey(RunRecord run) =>
+      '${run.id ?? 'local'}:${run.startedAt.toIso8601String()}';
 
   Future<void> _rebuildTerritories(
     SharedPreferences prefs,
