@@ -102,7 +102,6 @@ class RunHistoryScreen extends ConsumerWidget {
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (_, index) => _TimeSlipCard(
                     run: runs[index],
-                    index: index,
                     onOpen: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => ScoreboardScreen(run: runs[index]),
@@ -120,104 +119,88 @@ class RunHistoryScreen extends ConsumerWidget {
 class _TimeSlipCard extends StatelessWidget {
   const _TimeSlipCard({
     required this.run,
-    required this.index,
     required this.onOpen,
     required this.onDelete,
   });
   final RunRecord run;
-  final int index;
   final VoidCallback onOpen;
   final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
-    duration: Duration(milliseconds: 180 + index * 45),
-    tween: Tween(begin: 0, end: 1),
-    builder: (context, value, child) => Opacity(
-      opacity: value,
-      child: Transform.translate(
-        offset: Offset(18 * (1 - value), 0),
-        child: child,
-      ),
-    ),
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onOpen,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-          decoration: BoxDecoration(
-            color: AppColors.panel,
-            borderRadius: BorderRadius.circular(14),
-            border: Border(
-              left: const BorderSide(color: AppColors.blue, width: 4),
-              top: BorderSide(color: AppColors.blue.withValues(alpha: .25)),
-              right: BorderSide(color: AppColors.blue.withValues(alpha: .25)),
-              bottom: BorderSide(color: AppColors.blue.withValues(alpha: .25)),
-            ),
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onOpen,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+        decoration: BoxDecoration(
+          color: AppColors.panel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border(
+            left: const BorderSide(color: AppColors.blue, width: 4),
+            top: BorderSide(color: AppColors.blue.withValues(alpha: .25)),
+            right: BorderSide(color: AppColors.blue.withValues(alpha: .25)),
+            bottom: BorderSide(color: AppColors.blue.withValues(alpha: .25)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.sensors_rounded,
-                    color: AppColors.blue,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Text(
-                      DateFormat('EEE, d MMM y • HH:mm').format(run.startedAt),
-                      style: GoogleFonts.rajdhani(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: onDelete,
-                    icon: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                run.destinationName ?? 'FROM CURRENT LOCATION',
-                style: GoogleFonts.rajdhani(
-                  color: AppColors.muted,
-                  fontSize: 15,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.sensors_rounded,
+                  color: AppColors.blue,
+                  size: 20,
                 ),
-              ),
-              const Divider(height: 23),
-              Row(
-                children: [
-                  _SlipStat(
-                    'DIST',
-                    formatDistance(run.distanceMeters),
-                    highlighted: true,
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    DateFormat('EEE, d MMM y • HH:mm').format(run.startedAt),
+                    style: GoogleFonts.rajdhani(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                  _SlipStat(
-                    'MAX',
-                    '${run.topSpeedKmh.toStringAsFixed(0)} km/h',
-                    highlighted: true,
+                ),
+                IconButton(
+                  onPressed: onDelete,
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.muted,
                   ),
-                  _SlipStat(
-                    'AVG',
-                    '${run.averageSpeedKmh.toStringAsFixed(0)} km/h',
-                  ),
-                  _SlipStat(
-                    'TIME',
-                    formatDuration(Duration(seconds: run.durationSeconds)),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+            Text(
+              run.destinationName ?? 'FROM CURRENT LOCATION',
+              style: GoogleFonts.rajdhani(color: AppColors.muted, fontSize: 15),
+            ),
+            const Divider(height: 23),
+            Row(
+              children: [
+                _SlipStat(
+                  'DIST',
+                  formatDistance(run.distanceMeters),
+                  highlighted: true,
+                ),
+                _SlipStat(
+                  'MAX',
+                  '${run.topSpeedKmh.toStringAsFixed(0)} km/h',
+                  highlighted: true,
+                ),
+                _SlipStat(
+                  'AVG',
+                  '${run.averageSpeedKmh.toStringAsFixed(0)} km/h',
+                ),
+                _SlipStat(
+                  'TIME',
+                  formatDuration(Duration(seconds: run.durationSeconds)),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     ),
