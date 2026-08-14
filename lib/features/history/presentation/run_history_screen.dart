@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/models/run_record.dart';
 import '../../run/application/run_providers.dart';
+import '../../run/presentation/scoreboard_screen.dart';
 
 class RunHistoryScreen extends ConsumerWidget {
   const RunHistoryScreen({super.key, this.onMenu});
@@ -103,6 +104,11 @@ class RunHistoryScreen extends ConsumerWidget {
                     run: runs[index],
                     index: index,
                     onDelete: () => _deleteTrip(context, ref, runs[index]),
+                    onOpen: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ScoreboardScreen(run: runs[index]),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -116,10 +122,12 @@ class _HistoryCard extends StatelessWidget {
     required this.run,
     required this.index,
     required this.onDelete,
+    required this.onOpen,
   });
   final RunRecord run;
   final int index;
   final VoidCallback onDelete;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) => TweenAnimationBuilder<double>(
@@ -133,68 +141,71 @@ class _HistoryCard extends StatelessWidget {
         child: child,
       ),
     ),
-    child: Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.panel,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.blue.withValues(alpha: .2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.sports_motorsports_rounded,
-                color: AppColors.blue,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  DateFormat('EEE, d MMM y • HH:mm').format(run.startedAt),
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+    child: GestureDetector(
+      onTap: onOpen,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.panel,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.blue.withValues(alpha: .2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.sports_motorsports_rounded,
+                  color: AppColors.blue,
                 ),
-              ),
-              IconButton(
-                tooltip: 'Delete trip',
-                onPressed: onDelete,
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: AppColors.muted,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    DateFormat('EEE, d MMM y • HH:mm').format(run.startedAt),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ),
+                IconButton(
+                  tooltip: 'Delete trip',
+                  onPressed: onDelete,
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+            if (run.destinationName != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                run.destinationName!,
+                style: const TextStyle(color: AppColors.muted),
               ),
             ],
-          ),
-          if (run.destinationName != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              run.destinationName!,
-              style: const TextStyle(color: AppColors.muted),
+            const Divider(height: 28),
+            Row(
+              children: [
+                _HistoryStat(
+                  label: 'DISTANCE',
+                  value: formatDistance(run.distanceMeters),
+                ),
+                _HistoryStat(
+                  label: 'TOP',
+                  value: '${run.topSpeedKmh.toStringAsFixed(0)} km/h',
+                ),
+                _HistoryStat(
+                  label: 'AVG',
+                  value: '${run.averageSpeedKmh.toStringAsFixed(0)} km/h',
+                ),
+                _HistoryStat(
+                  label: 'TIME',
+                  value: formatDuration(Duration(seconds: run.durationSeconds)),
+                ),
+              ],
             ),
           ],
-          const Divider(height: 28),
-          Row(
-            children: [
-              _HistoryStat(
-                label: 'DISTANCE',
-                value: formatDistance(run.distanceMeters),
-              ),
-              _HistoryStat(
-                label: 'TOP',
-                value: '${run.topSpeedKmh.toStringAsFixed(0)} km/h',
-              ),
-              _HistoryStat(
-                label: 'AVG',
-                value: '${run.averageSpeedKmh.toStringAsFixed(0)} km/h',
-              ),
-              _HistoryStat(
-                label: 'TIME',
-                value: formatDuration(Duration(seconds: run.durationSeconds)),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     ),
   );

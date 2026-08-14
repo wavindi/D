@@ -28,7 +28,7 @@ class ScoreboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'TRIP STATS',
+          'TRIP DETAILS',
           style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
         ),
         backgroundColor: Colors.transparent,
@@ -57,6 +57,30 @@ class ScoreboardScreen extends StatelessWidget {
                         userAgentPackageName: 'com.d.racing.d',
                       ),
                       PolylineLayer(polylines: speedPolylines(run.samples)),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: routePoints.first,
+                            width: 42,
+                            height: 42,
+                            child: const Icon(
+                              Icons.trip_origin_rounded,
+                              color: AppColors.blue,
+                              size: 30,
+                            ),
+                          ),
+                          Marker(
+                            point: routePoints.last,
+                            width: 44,
+                            height: 44,
+                            child: const Icon(
+                              Icons.flag_rounded,
+                              color: AppColors.danger,
+                              size: 34,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
