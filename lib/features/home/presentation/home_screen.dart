@@ -297,7 +297,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     CircleMarker(
                       point: _currentPosition!,
                       radius: 20,
-                      color: AppColors.blue.withValues(alpha: .08),
+                      color: AppColors.blue.withValues(alpha: .18),
                     ),
                     CircleMarker(
                       point: _currentPosition!,
@@ -395,20 +395,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const Spacer(),
                       Container(
                         width: double.infinity,
-                        padding: EdgeInsets.fromLTRB(
-                          compact ? 14 : 18,
-                          compact ? 12 : 16,
-                          compact ? 14 : 18,
-                          compact ? 12 : 16,
-                        ),
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
                         decoration: BoxDecoration(
                           color: AppColors.panel.withValues(alpha: .96),
                           borderRadius: BorderRadius.circular(28),
                           border: Border.all(
-                            color: AppColors.blue.withValues(alpha: .18),
+                            color: AppColors.blue.withValues(alpha: .38),
                           ),
                           boxShadow: const [
-                            BoxShadow(color: Color(0x44000000), blurRadius: 14),
+                            BoxShadow(color: Color(0x55000000), blurRadius: 22),
                           ],
                         ),
                         child: Column(
@@ -500,16 +495,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ],
                               ),
                             ),
-                            if (!compact) ...[
-                              const SizedBox(height: 7),
-                              Text(
-                                autoStatus,
-                                style: const TextStyle(
-                                  color: AppColors.muted,
-                                  fontSize: 12,
-                                ),
+                            const SizedBox(height: 7),
+                            Text(
+                              autoStatus,
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
                               ),
-                            ],
+                            ),
                             const SizedBox(height: 12),
                             LedButton(
                               label: 'IGNITION • FREE DRIVE',
@@ -517,17 +510,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               busy: _starting,
                               onPressed: _startFreeDrive,
                             ),
-                            if (!compact) ...[
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Search above to set a destination, or start a free drive from your live GPS.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: AppColors.muted,
-                                  fontSize: 12,
-                                ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Search above to set a destination, or start a free drive from your live GPS.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
                               ),
-                            ],
+                            ),
                           ],
                         ),
                       ),
@@ -580,7 +571,7 @@ class _RadarGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.blue.withValues(alpha: .025)
+      ..color = AppColors.blue.withValues(alpha: .075)
       ..strokeWidth = 1;
     const gap = 54.0;
     for (var x = 0.0; x < size.width; x += gap) {

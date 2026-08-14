@@ -26,7 +26,11 @@ class LedButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: color.withValues(alpha: .24), blurRadius: 14),
+          BoxShadow(
+            color: color.withValues(alpha: .48),
+            blurRadius: 26,
+            spreadRadius: 1,
+          ),
         ],
       ),
       child: FilledButton.icon(

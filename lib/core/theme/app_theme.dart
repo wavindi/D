@@ -5,7 +5,7 @@ abstract final class AppColors {
   static const black = Color(0xFF09090B);
   static const panel = Color(0xF012121A);
   static const blue = Color(0xFF00F0FF);
-  static const blueGlow = Color(0x2600F0FF);
+  static const blueGlow = Color(0x6600F0FF);
   static const muted = Color(0xFF8993A5);
   static const danger = Color(0xFFFF334F);
 }
