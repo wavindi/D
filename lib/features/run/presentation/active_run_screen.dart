@@ -87,44 +87,28 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen>
                   final compact = constraints.maxHeight < 780;
                   return Padding(
                     padding: EdgeInsets.fromLTRB(12, compact ? 8 : 16, 12, 0),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          _RunStatus(
-                            paused: paused,
-                            arrived: autoFinished,
-                            freeDrive: freeDrive,
-                          ),
-                          SizedBox(height: compact ? 8 : 12),
-                          _SpeedHud(compact: compact),
-                          SizedBox(height: compact ? 8 : 12),
+                    child: Column(
+                      children: [
+                        _RunStatus(
+                          paused: paused,
+                          arrived: autoFinished,
+                          freeDrive: freeDrive,
+                        ),
+                        SizedBox(height: compact ? 8 : 12),
+                        _SpeedHud(compact: compact),
+                        const SizedBox(height: 8),
+                        const _TelemetryStrip(),
+                        if (!freeDrive && !compact) ...[
+                          const SizedBox(height: 8),
                           const Row(
                             children: [
-                              Expanded(child: _ElapsedHud()),
-                              SizedBox(width: 10),
-                              Expanded(child: _DistanceHud()),
+                              Expanded(child: _RemainingHud()),
+                              SizedBox(width: 8),
+                              Expanded(child: _EtaHud()),
                             ],
                           ),
-                          SizedBox(height: 10),
-                          const Row(
-                            children: [
-                              Expanded(child: _MaxSpeedHud()),
-                              SizedBox(width: 10),
-                              Expanded(child: _AvgSpeedHud()),
-                            ],
-                          ),
-                          if (!freeDrive && !compact) ...[
-                            const SizedBox(height: 10),
-                            const Row(
-                              children: [
-                                Expanded(child: _RemainingHud()),
-                                SizedBox(width: 10),
-                                Expanded(child: _EtaHud()),
-                              ],
-                            ),
-                          ],
                         ],
-                      ),
+                      ],
                     ),
                   );
                 },
@@ -136,34 +120,46 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen>
               bottom: 12,
               child: SafeArea(
                 top: false,
-                child: Column(
-                  children: [
-                    if (!autoFinished)
-                      LedButton(
-                        label: paused ? 'RESUME RUN' : 'PAUSE RUN',
-                        icon: paused
-                            ? Icons.play_arrow_rounded
-                            : Icons.pause_rounded,
-                        onPressed: () {
-                          final controller = ref.read(
-                            activeRunProvider.notifier,
-                          );
-                          if (paused) {
-                            controller.resume();
-                          } else {
-                            controller.pause();
-                          }
-                        },
+                child: autoFinished
+                    ? LedButton(
+                        label: 'SAVE TRIP',
+                        danger: true,
+                        busy: _finishing,
+                        onPressed: () => _finish(auto: true),
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            flex: 4,
+                            child: LedButton(
+                              label: paused ? 'RESUME' : 'PAUSE',
+                              icon: paused
+                                  ? Icons.play_arrow_rounded
+                                  : Icons.pause_rounded,
+                              onPressed: () {
+                                final controller = ref.read(
+                                  activeRunProvider.notifier,
+                                );
+                                if (paused) {
+                                  controller.resume();
+                                } else {
+                                  controller.pause();
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 6,
+                            child: LedButton(
+                              label: 'FINISH',
+                              danger: true,
+                              busy: _finishing,
+                              onPressed: _finish,
+                            ),
+                          ),
+                        ],
                       ),
-                    if (!autoFinished) const SizedBox(height: 12),
-                    LedButton(
-                      label: autoFinished ? 'SAVE TRIP' : 'FINISH RUN',
-                      danger: true,
-                      busy: _finishing,
-                      onPressed: () => _finish(auto: autoFinished),
-                    ),
-                  ],
-                ),
               ),
             ),
             IgnorePointer(
@@ -370,6 +366,7 @@ class _SpeedHud extends ConsumerWidget {
       activeRunProvider.select((state) => state.currentSpeedKmh),
     );
     return _HudPanel(
+      compact: compact,
       child: Column(
         children: [
           const Text(
@@ -386,7 +383,7 @@ class _SpeedHud extends ConsumerWidget {
               speed.toStringAsFixed(0),
               key: ValueKey(speed.toStringAsFixed(0)),
               style: TextStyle(
-                fontSize: compact ? 56 : 76,
+                fontSize: compact ? 52 : 62,
                 height: 1.05,
                 fontWeight: FontWeight.w900,
                 color: speedColor(speed),
@@ -405,6 +402,78 @@ class _SpeedHud extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _TelemetryStrip extends ConsumerWidget {
+  const _TelemetryStrip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(
+      activeRunProvider.select(
+        (state) => (
+          state.elapsed,
+          state.distanceMeters,
+          state.maxSpeedKmh,
+          state.averageSpeedKmh,
+        ),
+      ),
+    );
+    return _HudPanel(
+      compact: true,
+      child: Row(
+        children: [
+          _TelemetryValue(label: 'TIME', value: formatDuration(state.$1)),
+          _TelemetryValue(label: 'DIST.', value: formatDistance(state.$2)),
+          _TelemetryValue(
+            label: 'MAX',
+            value: state.$3.toStringAsFixed(0),
+            suffix: 'km/h',
+          ),
+          _TelemetryValue(
+            label: 'AVG',
+            value: state.$4.toStringAsFixed(0),
+            suffix: 'km/h',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TelemetryValue extends StatelessWidget {
+  const _TelemetryValue({
+    required this.label,
+    required this.value,
+    this.suffix,
+  });
+  final String label;
+  final String value;
+  final String? suffix;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.muted,
+            fontSize: 9,
+            letterSpacing: 1.1,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 5),
+        FittedBox(
+          child: Text(
+            suffix == null ? value : '$value $suffix',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _TripLaunchOverlay extends StatelessWidget {
@@ -496,60 +565,6 @@ class _TripLaunchOverlay extends StatelessWidget {
   );
 }
 
-class _ElapsedHud extends ConsumerWidget {
-  const _ElapsedHud();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final elapsed = ref.watch(
-      activeRunProvider.select((state) => state.elapsed),
-    );
-    return _SmallStat(label: 'ELAPSED', value: formatDuration(elapsed));
-  }
-}
-
-class _DistanceHud extends ConsumerWidget {
-  const _DistanceHud();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final distance = ref.watch(
-      activeRunProvider.select((state) => state.distanceMeters),
-    );
-    return _SmallStat(label: 'DISTANCE', value: formatDistance(distance));
-  }
-}
-
-class _MaxSpeedHud extends ConsumerWidget {
-  const _MaxSpeedHud();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final maxSpeed = ref.watch(
-      activeRunProvider.select((state) => state.maxSpeedKmh),
-    );
-    return _SmallStat(
-      label: 'MAX SPEED',
-      value: '${maxSpeed.toStringAsFixed(0)} KM/H',
-    );
-  }
-}
-
-class _AvgSpeedHud extends ConsumerWidget {
-  const _AvgSpeedHud();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final avg = ref.watch(
-      activeRunProvider.select((state) => state.averageSpeedKmh),
-    );
-    return _SmallStat(
-      label: 'AVG SPEED',
-      value: '${avg.toStringAsFixed(0)} KM/H',
-    );
-  }
-}
-
 class _RemainingHud extends ConsumerWidget {
   const _RemainingHud();
 
@@ -608,13 +623,16 @@ class _SmallStat extends StatelessWidget {
 }
 
 class _HudPanel extends StatelessWidget {
-  const _HudPanel({required this.child});
+  const _HudPanel({required this.child, this.compact = false});
   final Widget child;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(12),
+    padding: compact
+        ? const EdgeInsets.symmetric(horizontal: 10, vertical: 9)
+        : const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     decoration: BoxDecoration(
       color: AppColors.panel,
       borderRadius: BorderRadius.circular(22),
