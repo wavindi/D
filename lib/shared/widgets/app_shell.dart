@@ -6,6 +6,7 @@ import '../../features/auth/presentation/auth_screen.dart';
 import '../../features/history/presentation/run_history_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/leaderboard/presentation/leaderboard_screen.dart';
+import '../../features/racer/presentation/racer_screen.dart';
 import '../../features/stats/presentation/stats_screen.dart';
 import '../../features/territory/presentation/territory_screen.dart';
 
@@ -25,6 +26,7 @@ class _AppShellState extends State<AppShell> {
     (Icons.insights_rounded, 'Stats'),
     (Icons.public_rounded, 'Territory'),
     (Icons.emoji_events_rounded, 'Ranks'),
+    (Icons.flag_rounded, 'Racer'),
     (Icons.history_rounded, 'Trips'),
   ];
 
@@ -48,7 +50,8 @@ class _AppShellState extends State<AppShell> {
       1 => StatsScreen(onMenu: _openMenu),
       2 => TerritoryScreen(onMenu: _openMenu),
       3 => LeaderboardScreen(onMenu: _openMenu),
-      4 => RunHistoryScreen(onMenu: _openMenu),
+      4 => RacerScreen(onMenu: _openMenu),
+      5 => RunHistoryScreen(onMenu: _openMenu),
       _ => HomeScreen(onMenu: _openMenu),
     };
   }
