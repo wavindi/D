@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/models/run_record.dart';
@@ -15,17 +17,24 @@ class RunRepository {
     // as an offline cache so the app remains useful during weak connectivity.
     RunRecord? remoteSaved;
     if (DApi.instance.token != null) {
-      remoteSaved = await DApi.instance.saveTrip(run);
+      try {
+        remoteSaved = await DApi.instance.saveTrip(run);
+      } on TimeoutException {
+        // The local cache remains the durable fallback while offline.
+      } on http.ClientException {
+        // A connection or DNS failure must not discard a completed trip.
+      }
     }
 
     final prefs = await SharedPreferences.getInstance();
     final existing = await _getLocal();
-    final id = remoteSaved?.id ??
+    final id =
+        remoteSaved?.id ??
         ((existing.isEmpty
                 ? 0
                 : existing
-                    .map((e) => e.id ?? 0)
-                    .reduce((a, b) => a > b ? a : b)) +
+                      .map((e) => e.id ?? 0)
+                      .reduce((a, b) => a > b ? a : b)) +
             1);
     final saved = RunRecord(
       id: id,
@@ -41,7 +50,8 @@ class RunRepository {
     final next = [
       saved,
       ...existing.where(
-        (item) => item.startedAt.toIso8601String() != run.startedAt.toIso8601String(),
+        (item) =>
+            item.startedAt.toIso8601String() != run.startedAt.toIso8601String(),
       ),
     ];
     await prefs.setString(
@@ -76,11 +86,14 @@ class RunRepository {
 
   Future<List<RunRecord>> _getLocal() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_runsKey) ?? prefs.getString('d_racing_runs_v2');
+    final raw =
+        prefs.getString(_runsKey) ?? prefs.getString('d_racing_runs_v2');
     if (raw == null || raw.isEmpty) return const [];
     final list = jsonDecode(raw) as List<dynamic>;
     return list
-        .map((item) => RunRecord.fromMap(Map<String, Object?>.from(item as Map)))
+        .map(
+          (item) => RunRecord.fromMap(Map<String, Object?>.from(item as Map)),
+        )
         .toList(growable: false);
   }
 

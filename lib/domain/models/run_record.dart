@@ -1,20 +1,24 @@
 class SpeedSample {
-  const SpeedSample({required this.lat, required this.lng, required this.speedKmh});
+  const SpeedSample({
+    required this.lat,
+    required this.lng,
+    required this.speedKmh,
+  });
   final double lat;
   final double lng;
   final double speedKmh;
 
   Map<String, Object?> toMap() => {
-        'lat': lat,
-        'lng': lng,
-        'speed_kmh': speedKmh,
-      };
+    'lat': lat,
+    'lng': lng,
+    'speed_kmh': speedKmh,
+  };
 
   factory SpeedSample.fromMap(Map<String, Object?> map) => SpeedSample(
-        lat: (map['lat'] as num).toDouble(),
-        lng: (map['lng'] as num).toDouble(),
-        speedKmh: (map['speed_kmh'] as num).toDouble(),
-      );
+    lat: (map['lat'] as num).toDouble(),
+    lng: (map['lng'] as num).toDouble(),
+    speedKmh: (map['speed_kmh'] as num).toDouble(),
+  );
 }
 
 class RunRecord {
@@ -41,23 +45,25 @@ class RunRecord {
   final List<SpeedSample> samples;
 
   Map<String, Object?> toMap() => {
-        'id': id,
-        'started_at': startedAt.toIso8601String(),
-        'duration_seconds': durationSeconds,
-        'distance_meters': distanceMeters,
-        'top_speed_kmh': topSpeedKmh,
-        'average_speed_kmh': averageSpeedKmh,
-        'destination_name': destinationName,
-        'stopped_seconds': stoppedSeconds,
-        'samples': samples.map((s) => s.toMap()).toList(growable: false),
-      };
+    'id': id,
+    'started_at': startedAt.toIso8601String(),
+    'duration_seconds': durationSeconds,
+    'distance_meters': distanceMeters,
+    'top_speed_kmh': topSpeedKmh,
+    'average_speed_kmh': averageSpeedKmh,
+    'destination_name': destinationName,
+    'stopped_seconds': stoppedSeconds,
+    'samples': samples.map((s) => s.toMap()).toList(growable: false),
+  };
 
   factory RunRecord.fromMap(Map<String, Object?> map) {
     final rawSamples = map['samples'];
     final samples = rawSamples is List
         ? rawSamples
-            .map((e) => SpeedSample.fromMap(Map<String, Object?>.from(e as Map)))
-            .toList(growable: false)
+              .map(
+                (e) => SpeedSample.fromMap(Map<String, Object?>.from(e as Map)),
+              )
+              .toList(growable: false)
         : const <SpeedSample>[];
     return RunRecord(
       id: map['id'] as int?,

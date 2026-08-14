@@ -22,8 +22,9 @@ class ScoreboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dist = SpeedDistribution.fromSamples(run.samples);
-    final routePoints =
-        run.samples.map((s) => LatLng(s.lat, s.lng)).toList(growable: false);
+    final routePoints = run.samples
+        .map((s) => LatLng(s.lat, s.lng))
+        .toList(growable: false);
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -89,7 +90,9 @@ class ScoreboardScreen extends StatelessWidget {
                 Expanded(
                   child: _MetricChip(
                     label: 'DURATION',
-                    value: formatDuration(Duration(seconds: run.durationSeconds)),
+                    value: formatDuration(
+                      Duration(seconds: run.durationSeconds),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -114,7 +117,9 @@ class ScoreboardScreen extends StatelessWidget {
                 Expanded(
                   child: _MetricChip(
                     label: 'STOPPED',
-                    value: formatDuration(Duration(seconds: run.stoppedSeconds)),
+                    value: formatDuration(
+                      Duration(seconds: run.stoppedSeconds),
+                    ),
                   ),
                 ),
               ],
@@ -159,31 +164,31 @@ class _MetricChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.panel,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.blue.withValues(alpha: .22)),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+    decoration: BoxDecoration(
+      color: AppColors.panel,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: AppColors.blue.withValues(alpha: .22)),
+    ),
+    child: Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.muted,
+            fontSize: 10,
+            letterSpacing: 1.1,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.muted,
-                fontSize: 10,
-                letterSpacing: 1.1,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            FittedBox(
-              child: Text(
-                value,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-              ),
-            ),
-          ],
+        const SizedBox(height: 6),
+        FittedBox(
+          child: Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }

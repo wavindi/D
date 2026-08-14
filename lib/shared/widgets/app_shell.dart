@@ -38,10 +38,9 @@ class _AppShellState extends State<AppShell> {
   Future<void> _logout() async {
     await DApi.instance.logout();
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      _fadeRoute(const AuthScreen()),
-      (_) => false,
-    );
+    Navigator.of(
+      context,
+    ).pushAndRemoveUntil(_fadeRoute(const AuthScreen()), (_) => false);
   }
 
   Widget _page() {
@@ -136,15 +135,23 @@ class _AppShellState extends State<AppShell> {
               const Spacer(),
               if (DApi.instance.token != null)
                 ListTile(
-                  leading: const Icon(Icons.logout_rounded, color: AppColors.danger),
+                  leading: const Icon(
+                    Icons.logout_rounded,
+                    color: AppColors.danger,
+                  ),
                   title: const Text('Log out'),
                   onTap: _logout,
                 )
               else
                 ListTile(
-                  leading: const Icon(Icons.login_rounded, color: AppColors.blue),
+                  leading: const Icon(
+                    Icons.login_rounded,
+                    color: AppColors.blue,
+                  ),
                   title: const Text('Sign in'),
-                  onTap: () => Navigator.of(context).push(_fadeRoute(const AuthScreen())),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).push(_fadeRoute(const AuthScreen())),
                 ),
               const SizedBox(height: 8),
             ],
@@ -165,10 +172,7 @@ class _AppShellState extends State<AppShell> {
             child: SlideTransition(position: offset, child: child),
           );
         },
-        child: KeyedSubtree(
-          key: ValueKey(_index),
-          child: _page(),
-        ),
+        child: KeyedSubtree(key: ValueKey(_index), child: _page()),
       ),
     );
   }
@@ -194,14 +198,21 @@ class _DrawerTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: selected ? AppColors.blue.withValues(alpha: .16) : Colors.transparent,
+          color: selected
+              ? AppColors.blue.withValues(alpha: .16)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? AppColors.blue.withValues(alpha: .55) : Colors.transparent,
+            color: selected
+                ? AppColors.blue.withValues(alpha: .55)
+                : Colors.transparent,
           ),
         ),
         child: ListTile(
-          leading: Icon(icon, color: selected ? AppColors.blue : AppColors.muted),
+          leading: Icon(
+            icon,
+            color: selected ? AppColors.blue : AppColors.muted,
+          ),
           title: Text(
             label,
             style: TextStyle(
@@ -232,7 +243,10 @@ Route<T> slideUpRoute<T>(Widget page) {
   return PageRouteBuilder<T>(
     pageBuilder: (_, _, _) => page,
     transitionsBuilder: (_, animation, _, child) {
-      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
       return FadeTransition(
         opacity: curved,
         child: SlideTransition(

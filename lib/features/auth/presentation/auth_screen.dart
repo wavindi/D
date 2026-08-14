@@ -47,9 +47,7 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       }
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        slideUpRoute(const AppShell()),
-      );
+      Navigator.of(context).pushReplacement(slideUpRoute(const AppShell()));
     } catch (error) {
       setState(() => _error = error is StateError ? error.message : '$error');
     } finally {
@@ -78,7 +76,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _signup ? 'Create your driver account' : 'Sign in to save trips',
+                  _signup
+                      ? 'Create your driver account'
+                      : 'Sign in to save trips',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 22,
@@ -134,9 +134,9 @@ class _AuthScreenState extends State<AuthScreen> {
                   onPressed: _busy
                       ? null
                       : () => setState(() {
-                            _signup = !_signup;
-                            _error = null;
-                          }),
+                          _signup = !_signup;
+                          _error = null;
+                        }),
                   child: Text(
                     _signup
                         ? 'Already have an account? Log in'

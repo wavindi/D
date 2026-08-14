@@ -84,29 +84,29 @@ class RunState {
     String? autoTrackStatus,
     bool clearEta = false,
     bool clearDestination = false,
-  }) =>
-      RunState(
-        isActive: isActive ?? this.isActive,
-        isPaused: isPaused ?? this.isPaused,
-        isFreeDrive: isFreeDrive ?? this.isFreeDrive,
-        autoTrackEnabled: autoTrackEnabled ?? this.autoTrackEnabled,
-        elapsed: elapsed ?? this.elapsed,
-        currentSpeedKmh: currentSpeedKmh ?? this.currentSpeedKmh,
-        maxSpeedKmh: maxSpeedKmh ?? this.maxSpeedKmh,
-        averageSpeedKmh: averageSpeedKmh ?? this.averageSpeedKmh,
-        distanceMeters: distanceMeters ?? this.distanceMeters,
-        stoppedSeconds: stoppedSeconds ?? this.stoppedSeconds,
-        remainingMeters: remainingMeters ?? this.remainingMeters,
-        eta: clearEta ? null : (eta ?? this.eta),
-        route: route ?? this.route,
-        samples: samples ?? this.samples,
-        startedAt: startedAt ?? this.startedAt,
-        destination: clearDestination ? null : (destination ?? this.destination),
-        destinationName:
-            clearDestination ? null : (destinationName ?? this.destinationName),
-        autoFinished: autoFinished ?? this.autoFinished,
-        autoTrackStatus: autoTrackStatus ?? this.autoTrackStatus,
-      );
+  }) => RunState(
+    isActive: isActive ?? this.isActive,
+    isPaused: isPaused ?? this.isPaused,
+    isFreeDrive: isFreeDrive ?? this.isFreeDrive,
+    autoTrackEnabled: autoTrackEnabled ?? this.autoTrackEnabled,
+    elapsed: elapsed ?? this.elapsed,
+    currentSpeedKmh: currentSpeedKmh ?? this.currentSpeedKmh,
+    maxSpeedKmh: maxSpeedKmh ?? this.maxSpeedKmh,
+    averageSpeedKmh: averageSpeedKmh ?? this.averageSpeedKmh,
+    distanceMeters: distanceMeters ?? this.distanceMeters,
+    stoppedSeconds: stoppedSeconds ?? this.stoppedSeconds,
+    remainingMeters: remainingMeters ?? this.remainingMeters,
+    eta: clearEta ? null : (eta ?? this.eta),
+    route: route ?? this.route,
+    samples: samples ?? this.samples,
+    startedAt: startedAt ?? this.startedAt,
+    destination: clearDestination ? null : (destination ?? this.destination),
+    destinationName: clearDestination
+        ? null
+        : (destinationName ?? this.destinationName),
+    autoFinished: autoFinished ?? this.autoFinished,
+    autoTrackStatus: autoTrackStatus ?? this.autoTrackStatus,
+  );
 }
 
 final activeRunProvider = NotifierProvider<ActiveRunController, RunState>(
@@ -130,7 +130,8 @@ class ActiveRunController extends Notifier<RunState> {
   DateTime? _runClockStart;
   DateTime? _movingSince;
   DateTime? _stoppedSince;
-  int _stoppedSeconds = 0;
+  DateTime? _endedAt;
+  Duration _stoppedAccumulated = Duration.zero;
 
   @override
   RunState build() {
@@ -155,7 +156,8 @@ class ActiveRunController extends Notifier<RunState> {
     _runClockStart = startedAt;
     _pausedAccumulated = Duration.zero;
     _pauseStartedAt = null;
-    _stoppedSeconds = 0;
+    _endedAt = null;
+    _stoppedAccumulated = Duration.zero;
     _movingSince = null;
     _stoppedSince = null;
     final point = LatLng(initial.latitude, initial.longitude);
@@ -214,34 +216,35 @@ class ActiveRunController extends Notifier<RunState> {
   Future<void> _startAutoWatch() async {
     await _stopAutoWatch();
     await _ensureLocationAccess();
-    _autoWatchSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 3,
-      ),
-    ).listen((position) async {
-      if (state.isActive || !state.autoTrackEnabled) return;
-      final speed = math.max(0.0, position.speed * 3.6);
-      final now = DateTime.now();
-      if (speed >= _autoStartSpeedKmh) {
-        _movingSince ??= now;
-        final held = now.difference(_movingSince!);
-        state = state.copyWith(
-          autoTrackStatus:
-              'Drive detected… ${held.inSeconds}s / ${_autoStartHold.inSeconds}s',
-          currentSpeedKmh: speed,
-        );
-        if (held >= _autoStartHold) {
-          await start(freeDrive: true);
-        }
-      } else {
-        _movingSince = null;
-        state = state.copyWith(
-          autoTrackStatus: 'Watching for movement…',
-          currentSpeedKmh: speed,
-        );
-      }
-    });
+    _autoWatchSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.bestForNavigation,
+            distanceFilter: 3,
+          ),
+        ).listen((position) async {
+          if (state.isActive || !state.autoTrackEnabled) return;
+          final speed = math.max(0.0, position.speed * 3.6);
+          final now = DateTime.now();
+          if (speed >= _autoStartSpeedKmh) {
+            _movingSince ??= now;
+            final held = now.difference(_movingSince!);
+            state = state.copyWith(
+              autoTrackStatus:
+                  'Drive detected… ${held.inSeconds}s / ${_autoStartHold.inSeconds}s',
+              currentSpeedKmh: speed,
+            );
+            if (held >= _autoStartHold) {
+              await start(freeDrive: true);
+            }
+          } else {
+            _movingSince = null;
+            state = state.copyWith(
+              autoTrackStatus: 'Watching for movement…',
+              currentSpeedKmh: speed,
+            );
+          }
+        });
   }
 
   Future<void> _stopAutoWatch() async {
@@ -252,8 +255,15 @@ class ActiveRunController extends Notifier<RunState> {
 
   void pause() {
     if (!state.isActive || state.isPaused) return;
-    _pauseStartedAt = DateTime.now();
-    state = state.copyWith(isPaused: true, currentSpeedKmh: 0, clearEta: true);
+    final now = DateTime.now();
+    _finishStop(now);
+    _pauseStartedAt = now;
+    state = state.copyWith(
+      isPaused: true,
+      currentSpeedKmh: 0,
+      stoppedSeconds: _currentStoppedSeconds(now),
+      clearEta: true,
+    );
   }
 
   void resume() {
@@ -262,6 +272,7 @@ class ActiveRunController extends Notifier<RunState> {
       _pausedAccumulated += DateTime.now().difference(_pauseStartedAt!);
       _pauseStartedAt = null;
     }
+    _endedAt = null;
     state = state.copyWith(isPaused: false);
     _tickClock();
   }
@@ -273,10 +284,11 @@ class ActiveRunController extends Notifier<RunState> {
     final avg = elapsed.inSeconds <= 0
         ? 0.0
         : (state.distanceMeters / 1000) / (elapsed.inSeconds / 3600);
+    final now = DateTime.now();
     state = state.copyWith(
       elapsed: elapsed.isNegative ? Duration.zero : elapsed,
       averageSpeedKmh: math.max(0, avg),
-      stoppedSeconds: _stoppedSeconds,
+      stoppedSeconds: _currentStoppedSeconds(now),
       eta: _estimateEta(state.remainingMeters, avg, state.currentSpeedKmh),
     );
   }
@@ -306,22 +318,29 @@ class ActiveRunController extends Notifier<RunState> {
     }
     route.add(point);
     final speed = math.max(0.0, position.speed * 3.6);
-    samples.add(SpeedSample(lat: point.latitude, lng: point.longitude, speedKmh: speed));
+    samples.add(
+      SpeedSample(lat: point.latitude, lng: point.longitude, speedKmh: speed),
+    );
 
     final now = DateTime.now();
     if (speed < _autoStopSpeedKmh) {
       _stoppedSince ??= now;
-      _stoppedSeconds += 1;
       if (state.isFreeDrive &&
           state.autoTrackEnabled &&
           now.difference(_stoppedSince!) >= _autoStopHold &&
           distance > 200) {
-        state = state.copyWith(autoFinished: true, isPaused: true, currentSpeedKmh: 0);
+        _endedAt = now;
+        state = state.copyWith(
+          autoFinished: true,
+          isPaused: true,
+          currentSpeedKmh: 0,
+          stoppedSeconds: _currentStoppedSeconds(now),
+        );
         unawaited(_stopTracking());
         return;
       }
     } else {
-      _stoppedSince = null;
+      _finishStop(now);
     }
 
     final remaining = state.destination == null
@@ -343,16 +362,35 @@ class ActiveRunController extends Notifier<RunState> {
       averageSpeedKmh: math.max(0, avg),
       distanceMeters: distance,
       remainingMeters: remaining,
-      stoppedSeconds: _stoppedSeconds,
+      stoppedSeconds: _currentStoppedSeconds(now),
       eta: _estimateEta(remaining, avg, speed),
       route: List.unmodifiable(route),
       samples: List.unmodifiable(samples),
     );
 
     if (remaining != null && remaining <= _arrivalRadiusMeters) {
-      state = state.copyWith(autoFinished: true, isPaused: true, currentSpeedKmh: 0);
+      _endedAt = now;
+      state = state.copyWith(
+        autoFinished: true,
+        isPaused: true,
+        currentSpeedKmh: 0,
+        stoppedSeconds: _currentStoppedSeconds(now),
+      );
       unawaited(_stopTracking());
     }
+  }
+
+  void _finishStop(DateTime now) {
+    if (_stoppedSince == null) return;
+    _stoppedAccumulated += now.difference(_stoppedSince!);
+    _stoppedSince = null;
+  }
+
+  int _currentStoppedSeconds(DateTime now) {
+    final currentStop = _stoppedSince == null
+        ? Duration.zero
+        : now.difference(_stoppedSince!);
+    return (_stoppedAccumulated + currentStop).inSeconds;
   }
 
   Duration? _estimateEta(
@@ -371,13 +409,15 @@ class ActiveRunController extends Notifier<RunState> {
     if (!state.isActive || state.startedAt == null) {
       throw StateError('There is no active run.');
     }
+    final endedAt = _endedAt ?? DateTime.now();
     if (state.isPaused && _pauseStartedAt != null) {
-      _pausedAccumulated += DateTime.now().difference(_pauseStartedAt!);
+      _pausedAccumulated += endedAt.difference(_pauseStartedAt!);
       _pauseStartedAt = null;
     }
+    _finishStop(endedAt);
     final elapsed = _runClockStart == null
         ? state.elapsed
-        : DateTime.now().difference(_runClockStart!) - _pausedAccumulated;
+        : endedAt.difference(_runClockStart!) - _pausedAccumulated;
     final safeElapsed = elapsed.isNegative ? Duration.zero : elapsed;
     final avg = safeElapsed.inSeconds <= 0
         ? 0.0
@@ -388,7 +428,7 @@ class ActiveRunController extends Notifier<RunState> {
       currentSpeedKmh: 0,
       elapsed: safeElapsed,
       averageSpeedKmh: math.max(0, avg),
-      stoppedSeconds: _stoppedSeconds,
+      stoppedSeconds: _currentStoppedSeconds(endedAt),
     );
     state = finalState;
     await _stopTracking();

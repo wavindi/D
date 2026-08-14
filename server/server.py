@@ -27,7 +27,9 @@ if ENV_PATH.exists():
         os.environ.setdefault(key.strip(), value.strip())
 
 DB_PATH = Path(os.environ.get("D_DB_PATH", str(ROOT / "data" / "d.db")))
-JWT_SECRET = os.environ.get("D_JWT_SECRET") or "change-me"
+JWT_SECRET = os.environ.get("D_JWT_SECRET", "")
+if len(JWT_SECRET) < 32 or JWT_SECRET == "replace-with-a-long-random-secret":
+    raise RuntimeError("Set D_JWT_SECRET to a random value of at least 32 characters")
 JWT_ALG = "HS256"
 TOKEN_DAYS = 30
 

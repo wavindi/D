@@ -210,7 +210,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _startRun(_Destination destination) async {
     setState(() => _starting = true);
     try {
-      await ref.read(activeRunProvider.notifier).start(
+      await ref
+          .read(activeRunProvider.notifier)
+          .start(
             destination: destination.position,
             destinationName: destination.name,
           );
@@ -218,9 +220,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await Navigator.of(context).push(slideUpRoute(const ActiveRunScreen()));
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_messageFor(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_messageFor(error))));
       }
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -235,9 +237,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await Navigator.of(context).push(slideUpRoute(const ActiveRunScreen()));
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_messageFor(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_messageFor(error))));
       }
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -307,114 +309,119 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   padding: EdgeInsets.fromLTRB(12, compact ? 10 : 16, 12, 12),
                   child: Column(
                     children: [
-                  Row(
-                    children: [
-                      _MenuButton(onTap: widget.onMenu),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: _search,
-                          onSubmitted: _submit,
-                          textInputAction: TextInputAction.search,
-                          decoration: InputDecoration(
-                            hintText: 'Search destination or lat, lng',
-                            prefixIcon: const Icon(
-                              Icons.search,
-                              color: AppColors.blue,
-                            ),
-                            suffixIcon: IconButton(
-                              onPressed: () => _submit(_searchController.text),
-                              icon: const Icon(Icons.arrow_forward_rounded),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_matches.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(left: 64, top: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.panel,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: ListView.separated(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        itemCount: _matches.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (_, index) {
-                          final destination = _matches[index];
-                          return ListTile(
-                            leading: const Icon(
-                              Icons.flag_rounded,
-                              color: AppColors.blue,
-                            ),
-                            title: Text(destination.name),
-                            onTap: () => _selectDestination(destination),
-                          );
-                        },
-                      ),
-                    ),
-                  const Spacer(),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.panel,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: AppColors.blue.withValues(alpha: .28),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                autoTrack
-                                    ? 'AUTO-TRACK ON'
-                                    : 'AUTO-TRACK OFF',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.2,
+                      Row(
+                        children: [
+                          _MenuButton(onTap: widget.onMenu),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: _search,
+                              onSubmitted: _submit,
+                              textInputAction: TextInputAction.search,
+                              decoration: InputDecoration(
+                                hintText: 'Search destination or lat, lng',
+                                prefixIcon: const Icon(
+                                  Icons.search,
+                                  color: AppColors.blue,
+                                ),
+                                suffixIcon: IconButton(
+                                  onPressed: () =>
+                                      _submit(_searchController.text),
+                                  icon: const Icon(Icons.arrow_forward_rounded),
                                 ),
                               ),
                             ),
-                            Switch(
-                              value: autoTrack,
-                              activeThumbColor: AppColors.blue,
-                              onChanged: (v) => ref
-                                  .read(activeRunProvider.notifier)
-                                  .setAutoTrackEnabled(v),
+                          ),
+                        ],
+                      ),
+                      if (_matches.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(left: 64, top: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.panel,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: ListView.separated(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: _matches.length,
+                            separatorBuilder: (_, _) =>
+                                const Divider(height: 1),
+                            itemBuilder: (_, index) {
+                              final destination = _matches[index];
+                              return ListTile(
+                                leading: const Icon(
+                                  Icons.flag_rounded,
+                                  color: AppColors.blue,
+                                ),
+                                title: Text(destination.name),
+                                onTap: () => _selectDestination(destination),
+                              );
+                            },
+                          ),
+                        ),
+                      const Spacer(),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.panel,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: AppColors.blue.withValues(alpha: .28),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    autoTrack
+                                        ? 'AUTO-TRACK ON'
+                                        : 'AUTO-TRACK OFF',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                ),
+                                Switch(
+                                  value: autoTrack,
+                                  activeThumbColor: AppColors.blue,
+                                  onChanged: (v) => ref
+                                      .read(activeRunProvider.notifier)
+                                      .setAutoTrackEnabled(v),
+                                ),
+                              ],
+                            ),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                autoStatus,
+                                style: const TextStyle(color: AppColors.muted),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            LedButton(
+                              label: 'START TRIP',
+                              icon: Icons.play_arrow_rounded,
+                              busy: _starting,
+                              onPressed: _startFreeDrive,
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Starts from your live GPS. Traces the road, speed, max speed, average speed and time.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            autoStatus,
-                            style: const TextStyle(color: AppColors.muted),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        LedButton(
-                          label: 'START TRIP',
-                          icon: Icons.play_arrow_rounded,
-                          busy: _starting,
-                          onPressed: _startFreeDrive,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Starts from your live GPS. Traces the road, speed, max speed, average speed and time.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppColors.muted, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
                     ],
                   ),
                 );
@@ -449,7 +456,11 @@ class _MenuButton extends StatelessWidget {
               BoxShadow(color: AppColors.blueGlow, blurRadius: 18),
             ],
           ),
-          child: const Icon(Icons.menu_rounded, color: AppColors.blue, size: 28),
+          child: const Icon(
+            Icons.menu_rounded,
+            color: AppColors.blue,
+            size: 28,
+          ),
         ),
       ),
     );

@@ -38,7 +38,7 @@ class LeaderboardScreen extends ConsumerWidget {
           final yourAvg = runs.isEmpty
               ? 0.0
               : runs.map((r) => r.averageSpeedKmh).reduce((a, b) => a + b) /
-                  runs.length;
+                    runs.length;
           final board = [
             _Row('Amara Cohen', 'Golf R', 113, true),
             _Row('Lucas Novak', 'M2', 109, false),
@@ -57,8 +57,9 @@ class LeaderboardScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AppColors.panel,
                   borderRadius: BorderRadius.circular(20),
-                  border:
-                      Border.all(color: AppColors.blue.withValues(alpha: .25)),
+                  border: Border.all(
+                    color: AppColors.blue.withValues(alpha: .25),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -117,7 +118,9 @@ class LeaderboardScreen extends ConsumerWidget {
                           children: [
                             Text(
                               board[i].name,
-                              style: const TextStyle(fontWeight: FontWeight.w800),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                             Text(
                               board[i].car,
@@ -163,21 +166,21 @@ class _Mini extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.muted,
-              fontSize: 11,
-              letterSpacing: 1.1,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-          ),
-        ],
-      );
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.muted,
+          fontSize: 11,
+          letterSpacing: 1.1,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      const SizedBox(height: 6),
+      Text(
+        value,
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+      ),
+    ],
+  );
 }

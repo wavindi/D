@@ -46,8 +46,9 @@ class StatsScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AppColors.panel,
                   borderRadius: BorderRadius.circular(22),
-                  border:
-                      Border.all(color: AppColors.blue.withValues(alpha: .25)),
+                  border: Border.all(
+                    color: AppColors.blue.withValues(alpha: .25),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -91,11 +92,16 @@ class StatsScreen extends ConsumerWidget {
                                         horizontal: 3,
                                       ),
                                       child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
                                         children: [
                                           Container(
-                                            height: 80 *
-                                                (m.value / (maxMonth == 0 ? 1 : maxMonth))
+                                            height:
+                                                80 *
+                                                (m.value /
+                                                        (maxMonth == 0
+                                                            ? 1
+                                                            : maxMonth))
                                                     .clamp(0.05, 1.0),
                                             decoration: BoxDecoration(
                                               color: AppColors.blue,
@@ -197,32 +203,32 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.panel,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.blue.withValues(alpha: .2)),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppColors.panel,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: AppColors.blue.withValues(alpha: .2)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppColors.blue),
+        const SizedBox(height: 12),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.muted,
+            fontSize: 11,
+            letterSpacing: 1.1,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: AppColors.blue),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.muted,
-                fontSize: 11,
-                letterSpacing: 1.1,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-            ),
-          ],
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
         ),
-      );
+      ],
+    ),
+  );
 }

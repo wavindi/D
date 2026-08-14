@@ -46,9 +46,9 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
       );
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save run: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not save run: $error')));
         setState(() => _finishing = false);
       }
     }
@@ -57,8 +57,9 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
   @override
   Widget build(BuildContext context) {
     final paused = ref.watch(activeRunProvider.select((s) => s.isPaused));
-    final autoFinished =
-        ref.watch(activeRunProvider.select((s) => s.autoFinished));
+    final autoFinished = ref.watch(
+      activeRunProvider.select((s) => s.autoFinished),
+    );
     final freeDrive = ref.watch(activeRunProvider.select((s) => s.isFreeDrive));
     return PopScope(
       canPop: false,
@@ -130,8 +131,9 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
                             ? Icons.play_arrow_rounded
                             : Icons.pause_rounded,
                         onPressed: () {
-                          final controller =
-                              ref.read(activeRunProvider.notifier);
+                          final controller = ref.read(
+                            activeRunProvider.notifier,
+                          );
                           if (paused) {
                             controller.resume();
                           } else {
@@ -170,23 +172,25 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
   @override
   void initState() {
     super.initState();
-    ref.listenManual(
-      activeRunProvider.select((state) => state.route),
-      (previous, next) {
-        final previousLast =
-            previous == null || previous.isEmpty ? null : previous.last;
-        if (next.isNotEmpty && previousLast != next.last) {
-          _controller.move(next.last, 17);
-        }
-      },
-    );
+    ref.listenManual(activeRunProvider.select((state) => state.route), (
+      previous,
+      next,
+    ) {
+      final previousLast = previous == null || previous.isEmpty
+          ? null
+          : previous.last;
+      if (next.isNotEmpty && previousLast != next.last) {
+        _controller.move(next.last, 17);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final route = ref.watch(activeRunProvider.select((state) => state.route));
-    final samples =
-        ref.watch(activeRunProvider.select((state) => state.samples));
+    final samples = ref.watch(
+      activeRunProvider.select((state) => state.samples),
+    );
     final destination = ref.watch(
       activeRunProvider.select((state) => state.destination),
     );
@@ -200,7 +204,8 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.d.racing.d',
         ),
-        if (samples.length > 1) PolylineLayer(polylines: speedPolylines(samples)),
+        if (samples.length > 1)
+          PolylineLayer(polylines: speedPolylines(samples)),
         if (startPoint != null)
           MarkerLayer(
             markers: [
@@ -263,15 +268,15 @@ class _RunStatus extends StatelessWidget {
     final label = arrived
         ? (freeDrive ? 'TRIP AUTO-SAVED' : 'DESTINATION REACHED')
         : paused
-            ? 'RUN PAUSED'
-            : freeDrive
-                ? 'AUTO-TRACKING'
-                : 'RUN ACTIVE';
+        ? 'RUN PAUSED'
+        : freeDrive
+        ? 'AUTO-TRACKING'
+        : 'RUN ACTIVE';
     final color = arrived
         ? AppColors.blue
         : paused
-            ? AppColors.muted
-            : AppColors.blue;
+        ? AppColors.muted
+        : AppColors.blue;
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -329,9 +334,9 @@ class _PulseDotState extends State<_PulseDot>
 
   @override
   Widget build(BuildContext context) => FadeTransition(
-        opacity: _animation,
-        child: const Icon(Icons.circle, size: 11, color: AppColors.blue),
-      );
+    opacity: _animation,
+    child: const Icon(Icons.circle, size: 11, color: AppColors.blue),
+  );
 }
 
 class _SpeedHud extends ConsumerWidget {
@@ -462,26 +467,26 @@ class _SmallStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _HudPanel(
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.muted,
-                fontSize: 11,
-                letterSpacing: 1.4,
-              ),
-            ),
-            const SizedBox(height: 6),
-            FittedBox(
-              child: Text(
-                value,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-              ),
-            ),
-          ],
+    child: Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.muted,
+            fontSize: 11,
+            letterSpacing: 1.4,
+          ),
         ),
-      );
+        const SizedBox(height: 6),
+        FittedBox(
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _HudPanel extends StatelessWidget {
@@ -490,14 +495,14 @@ class _HudPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.panel,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: AppColors.blue.withValues(alpha: .28)),
-          boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 15)],
-        ),
-        child: child,
-      );
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: AppColors.panel,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: AppColors.blue.withValues(alpha: .28)),
+      boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 15)],
+    ),
+    child: child,
+  );
 }
