@@ -43,14 +43,22 @@ class RunHistoryScreen extends ConsumerWidget {
       ),
     );
     if (confirmed != true || !context.mounted) return;
-    await ref.read(runRepositoryProvider).delete(run);
-    ref.invalidate(runHistoryProvider);
-    ref.invalidate(drivingStatsProvider);
-    ref.invalidate(territoriesProvider);
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Time slip erased.')));
+    try {
+      await ref.read(runRepositoryProvider).delete(run);
+      ref.invalidate(runHistoryProvider);
+      ref.invalidate(drivingStatsProvider);
+      ref.invalidate(territoriesProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Time slip erased.')));
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not erase trip: $error')));
+      }
     }
   }
 
