@@ -296,6 +296,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   circles: [
                     CircleMarker(
                       point: _currentPosition!,
+                      radius: 20,
+                      color: AppColors.blue.withValues(alpha: .18),
+                    ),
+                    CircleMarker(
+                      point: _currentPosition!,
                       radius: 10,
                       color: AppColors.blue,
                       borderColor: Colors.white,
@@ -365,58 +370,144 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             },
                           ),
                         ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _MapPill(
+                            icon: Icons.gps_fixed_rounded,
+                            label: _currentPosition == null
+                                ? 'LOCATING GPS'
+                                : 'GPS READY',
+                          ),
+                          const Spacer(),
+                          _RoundMapAction(
+                            icon: Icons.my_location_rounded,
+                            tooltip: 'Center on my location',
+                            onPressed: _centerOnCurrentPosition,
+                          ),
+                        ],
+                      ),
                       const Spacer(),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
                         decoration: BoxDecoration(
-                          color: AppColors.panel,
-                          borderRadius: BorderRadius.circular(24),
+                          color: AppColors.panel.withValues(alpha: .96),
+                          borderRadius: BorderRadius.circular(28),
                           border: Border.all(
-                            color: AppColors.blue.withValues(alpha: .28),
+                            color: AppColors.blue.withValues(alpha: .38),
                           ),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x55000000), blurRadius: 22),
+                          ],
                         ),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    autoTrack
-                                        ? 'AUTO-TRACK ON'
-                                        : 'AUTO-TRACK OFF',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.2,
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.blue.withValues(
+                                      alpha: .16,
                                     ),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(
+                                    Icons.directions_car_filled_rounded,
+                                    color: AppColors.blue,
                                   ),
                                 ),
-                                Switch(
-                                  value: autoTrack,
-                                  activeThumbColor: AppColors.blue,
-                                  onChanged: (v) => ref
-                                      .read(activeRunProvider.notifier)
-                                      .setAutoTrackEnabled(v),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'READY TO DRIVE',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 1.3,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Record every road you take',
+                                        style: TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                autoStatus,
-                                style: const TextStyle(color: AppColors.muted),
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.black.withValues(alpha: .42),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    autoTrack
+                                        ? Icons.sensors_rounded
+                                        : Icons.sensors_off_rounded,
+                                    color: autoTrack
+                                        ? AppColors.blue
+                                        : AppColors.muted,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      autoTrack
+                                          ? 'AUTO-TRACKING ENABLED'
+                                          : 'AUTO-TRACKING OFF',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
+                                  ),
+                                  Switch.adaptive(
+                                    value: autoTrack,
+                                    activeThumbColor: AppColors.blue,
+                                    onChanged: (v) => ref
+                                        .read(activeRunProvider.notifier)
+                                        .setAutoTrackEnabled(v),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 7),
+                            Text(
+                              autoStatus,
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
                               ),
                             ),
                             const SizedBox(height: 12),
                             LedButton(
-                              label: 'START TRIP',
+                              label: 'START FREE DRIVE',
                               icon: Icons.play_arrow_rounded,
                               busy: _starting,
                               onPressed: _startFreeDrive,
                             ),
                             const SizedBox(height: 8),
                             const Text(
-                              'Starts from your live GPS. Traces the road, speed, max speed, average speed and time.',
+                              'Search above to set a destination, or start a free drive from your live GPS.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: AppColors.muted,
@@ -436,6 +527,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
+}
+
+class _MapPill extends StatelessWidget {
+  const _MapPill({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+    decoration: BoxDecoration(
+      color: AppColors.black.withValues(alpha: .78),
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: AppColors.blue.withValues(alpha: .3)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: AppColors.blue, size: 15),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.1,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _RoundMapAction extends StatelessWidget {
+  const _RoundMapAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: Material(
+      color: AppColors.black.withValues(alpha: .82),
+      shape: const CircleBorder(),
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon, color: AppColors.blue),
+      ),
+    ),
+  );
 }
 
 class _MenuButton extends StatelessWidget {

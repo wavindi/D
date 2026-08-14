@@ -38,53 +38,7 @@ class ScoreboardScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             if (routePoints.length > 1)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: SizedBox(
-                  height: 260,
-                  child: FlutterMap(
-                    options: MapOptions(
-                      initialCenter: routePoints[routePoints.length ~/ 2],
-                      initialZoom: 13,
-                      interactionOptions: const InteractionOptions(
-                        flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-                      ),
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.d.racing.d',
-                      ),
-                      PolylineLayer(polylines: speedPolylines(run.samples)),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: routePoints.first,
-                            width: 42,
-                            height: 42,
-                            child: const Icon(
-                              Icons.trip_origin_rounded,
-                              color: AppColors.blue,
-                              size: 30,
-                            ),
-                          ),
-                          Marker(
-                            point: routePoints.last,
-                            width: 44,
-                            height: 44,
-                            child: const Icon(
-                              Icons.flag_rounded,
-                              color: AppColors.danger,
-                              size: 34,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              _TripRouteMap(routePoints: routePoints, run: run),
             const SizedBox(height: 18),
             Text(
               autoFinished ? 'DRIVE CAPTURED' : 'RUN COMPLETE',
@@ -179,6 +133,121 @@ class ScoreboardScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TripRouteMap extends StatelessWidget {
+  const _TripRouteMap({required this.routePoints, required this.run});
+  final List<LatLng> routePoints;
+  final RunRecord run;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(24),
+    child: SizedBox(
+      height: 280,
+      child: Stack(
+        children: [
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: routePoints[routePoints.length ~/ 2],
+              initialZoom: 13,
+              initialCameraFit: CameraFit.coordinates(
+                coordinates: routePoints,
+                padding: const EdgeInsets.all(38),
+                maxZoom: 16,
+              ),
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+              ),
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.d.racing.d',
+              ),
+              PolylineLayer(polylines: speedPolylines(run.samples)),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: routePoints.first,
+                    width: 42,
+                    height: 42,
+                    child: const Icon(
+                      Icons.trip_origin_rounded,
+                      color: AppColors.blue,
+                      size: 30,
+                    ),
+                  ),
+                  Marker(
+                    point: routePoints.last,
+                    width: 44,
+                    height: 44,
+                    child: const Icon(
+                      Icons.flag_rounded,
+                      color: AppColors.danger,
+                      size: 34,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Positioned(
+            top: 12,
+            left: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppColors.black.withValues(alpha: .82),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.route_rounded, color: AppColors.blue, size: 16),
+                  SizedBox(width: 6),
+                  Text(
+                    'RECORDED ROUTE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Positioned(right: 12, bottom: 12, child: _RouteLegend()),
+        ],
+      ),
+    ),
+  );
+}
+
+class _RouteLegend extends StatelessWidget {
+  const _RouteLegend();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+    decoration: BoxDecoration(
+      color: AppColors.black.withValues(alpha: .82),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.circle, color: AppColors.blue, size: 10),
+        SizedBox(width: 4),
+        Text('Start', style: TextStyle(fontSize: 10)),
+        SizedBox(width: 8),
+        Icon(Icons.flag_rounded, color: AppColors.danger, size: 14),
+        SizedBox(width: 3),
+        Text('Finish', style: TextStyle(fontSize: 10)),
+      ],
+    ),
+  );
 }
 
 class _MetricChip extends StatelessWidget {
