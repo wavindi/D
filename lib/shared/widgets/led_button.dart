@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 
@@ -23,9 +24,13 @@ class LedButton extends StatelessWidget {
     final color = danger ? AppColors.danger : AppColors.blue;
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: color.withValues(alpha: .42), blurRadius: 22),
+          BoxShadow(
+            color: color.withValues(alpha: .48),
+            blurRadius: 26,
+            spreadRadius: 1,
+          ),
         ],
       ),
       child: FilledButton.icon(
@@ -35,9 +40,9 @@ class LedButton extends StatelessWidget {
           backgroundColor: color,
           foregroundColor: danger ? Colors.white : Colors.black,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: const TextStyle(
+          textStyle: GoogleFonts.orbitron(
             fontSize: 17,
             fontWeight: FontWeight.w900,
             letterSpacing: 1.5,

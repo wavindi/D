@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -23,9 +24,13 @@ class TerritoryScreen extends ConsumerWidget {
                 onPressed: onMenu,
                 icon: const Icon(Icons.menu_rounded),
               ),
-        title: const Text(
-          'TERRITORY',
-          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
+        title: Text(
+          'TURF WAR // GRID',
+          style: GoogleFonts.orbitron(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.4,
+            fontSize: 17,
+          ),
         ),
         backgroundColor: Colors.transparent,
       ),
@@ -59,9 +64,9 @@ class TerritoryScreen extends ConsumerWidget {
                           CircleMarker(
                             point: p,
                             radius: 10,
-                            color: const Color(0xAA9B5CFF),
-                            borderColor: const Color(0xFFD6B3FF),
-                            borderStrokeWidth: 1.5,
+                            color: AppColors.blue.withValues(alpha: .38),
+                            borderColor: AppColors.blue,
+                            borderStrokeWidth: 1.8,
                           ),
                       ],
                     ),
@@ -76,34 +81,34 @@ class TerritoryScreen extends ConsumerWidget {
                   child: Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: AppColors.panel,
-                      borderRadius: BorderRadius.circular(22),
+                      color: AppColors.panel.withValues(alpha: .95),
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: const Color(0xFF9B5CFF).withValues(alpha: .45),
+                        color: AppColors.blue.withValues(alpha: .45),
                       ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'WORLD TERRITORY',
-                          style: TextStyle(
-                            color: Color(0xFFD6B3FF),
+                        Text(
+                          'YOUR SECTOR // CYAN GRID',
+                          style: GoogleFonts.rajdhani(
+                            color: AppColors.blue,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 1.4,
+                            letterSpacing: 1.6,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${cells.length} territories claimed',
-                          style: const TextStyle(
-                            fontSize: 28,
+                          '${cells.length.toString().padLeft(3, '0')} CELLS CLAIMED',
+                          style: GoogleFonts.orbitron(
+                            fontSize: 20,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                         const SizedBox(height: 6),
                         const Text(
-                          'Every road you drive claims grid cells on the map. Keep driving to expand your empire.',
+                          'Cyan cells are yours. Rival sectors will appear in red when multiplayer sync is live.',
                           style: TextStyle(color: AppColors.muted),
                         ),
                       ],

@@ -27,6 +27,7 @@ class RunState {
     this.autoTrackEnabled = false,
     this.elapsed = Duration.zero,
     this.currentSpeedKmh = 0,
+    this.gpsAccuracy,
     this.maxSpeedKmh = 0,
     this.averageSpeedKmh = 0,
     this.distanceMeters = 0,
@@ -48,6 +49,7 @@ class RunState {
   final bool autoTrackEnabled;
   final Duration elapsed;
   final double currentSpeedKmh;
+  final double? gpsAccuracy;
   final double maxSpeedKmh;
   final double averageSpeedKmh;
   final double distanceMeters;
@@ -69,6 +71,7 @@ class RunState {
     bool? autoTrackEnabled,
     Duration? elapsed,
     double? currentSpeedKmh,
+    double? gpsAccuracy,
     double? maxSpeedKmh,
     double? averageSpeedKmh,
     double? distanceMeters,
@@ -91,6 +94,7 @@ class RunState {
     autoTrackEnabled: autoTrackEnabled ?? this.autoTrackEnabled,
     elapsed: elapsed ?? this.elapsed,
     currentSpeedKmh: currentSpeedKmh ?? this.currentSpeedKmh,
+    gpsAccuracy: gpsAccuracy ?? this.gpsAccuracy,
     maxSpeedKmh: maxSpeedKmh ?? this.maxSpeedKmh,
     averageSpeedKmh: averageSpeedKmh ?? this.averageSpeedKmh,
     distanceMeters: distanceMeters ?? this.distanceMeters,
@@ -175,6 +179,7 @@ class ActiveRunController extends Notifier<RunState> {
           speedKmh: math.max(0, initial.speed * 3.6),
         ),
       ],
+      gpsAccuracy: initial.accuracy,
       destination: destination,
       destinationName: freeDrive
           ? 'From current location'
@@ -295,7 +300,10 @@ class ActiveRunController extends Notifier<RunState> {
 
   void _onPosition(Position position) {
     if (!state.isActive || state.isPaused) return;
-    if (position.accuracy > _maxAccuracyMeters) return;
+    if (position.accuracy > _maxAccuracyMeters) {
+      state = state.copyWith(gpsAccuracy: position.accuracy);
+      return;
+    }
 
     final point = LatLng(position.latitude, position.longitude);
     final route = [...state.route];
@@ -358,6 +366,7 @@ class ActiveRunController extends Notifier<RunState> {
 
     state = state.copyWith(
       currentSpeedKmh: speed,
+      gpsAccuracy: position.accuracy,
       maxSpeedKmh: math.max(state.maxSpeedKmh, speed),
       averageSpeedKmh: math.max(0, avg),
       distanceMeters: distance,
