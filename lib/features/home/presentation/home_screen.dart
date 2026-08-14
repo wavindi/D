@@ -217,7 +217,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             destinationName: destination.name,
           );
       if (!mounted) return;
-      await Navigator.of(context).push(slideUpRoute(const ActiveRunScreen()));
+      await Navigator.of(
+        context,
+      ).push(tripLaunchRoute(const ActiveRunScreen()));
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -234,7 +236,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       await ref.read(activeRunProvider.notifier).start(freeDrive: true);
       if (!mounted) return;
-      await Navigator.of(context).push(slideUpRoute(const ActiveRunScreen()));
+      await Navigator.of(
+        context,
+      ).push(tripLaunchRoute(const ActiveRunScreen()));
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(

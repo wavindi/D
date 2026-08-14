@@ -259,3 +259,15 @@ def create_trip(body: TripIn, user=Depends(current_user)):
         trip_id = cur.lastrowid
     return {"id": trip_id, "ok": True}
 
+
+@app.delete("/api/trips/{trip_id}")
+def delete_trip(trip_id: int, user=Depends(current_user)):
+    with db() as conn:
+        cur = conn.execute(
+            "DELETE FROM trips WHERE id = ? AND user_id = ?",
+            (trip_id, user["id"]),
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Trip not found")
+    return {"ok": True}
+

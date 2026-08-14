@@ -159,6 +159,16 @@ class DApi {
     );
   }
 
+  Future<void> deleteTrip(int id) async {
+    final res = await http
+        .delete(Uri.parse('$baseUrl/api/trips/$id'), headers: _headers())
+        .timeout(_requestTimeout);
+    final data = _decode(res);
+    if (res.statusCode >= 400) {
+      throw StateError(data['detail']?.toString() ?? 'Could not delete trip');
+    }
+  }
+
   Map<String, String> _headers() => {
     'Content-Type': 'application/json',
     if (token != null) 'Authorization': 'Bearer $token',

@@ -17,8 +17,13 @@ class ActiveRunScreen extends ConsumerStatefulWidget {
   ConsumerState<ActiveRunScreen> createState() => _ActiveRunScreenState();
 }
 
-class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
+class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen>
+    with SingleTickerProviderStateMixin {
   bool _finishing = false;
+  late final AnimationController _launchAnimation = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1700),
+  )..forward();
 
   @override
   void initState() {
@@ -31,6 +36,12 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
         }
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _launchAnimation.dispose();
+    super.dispose();
   }
 
   Future<void> _finish({bool auto = false}) async {
@@ -61,6 +72,9 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
       activeRunProvider.select((s) => s.autoFinished),
     );
     final freeDrive = ref.watch(activeRunProvider.select((s) => s.isFreeDrive));
+    final destinationName = ref.watch(
+      activeRunProvider.select((s) => s.destinationName),
+    );
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -150,6 +164,13 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
                     ),
                   ],
                 ),
+              ),
+            ),
+            IgnorePointer(
+              child: _TripLaunchOverlay(
+                animation: _launchAnimation,
+                destinationName: destinationName,
+                freeDrive: freeDrive,
               ),
             ),
           ],
@@ -355,13 +376,21 @@ class _SpeedHud extends ConsumerWidget {
             'CURRENT SPEED',
             style: TextStyle(color: AppColors.muted, letterSpacing: 2),
           ),
-          Text(
-            speed.toStringAsFixed(0),
-            style: TextStyle(
-              fontSize: compact ? 56 : 76,
-              height: 1.05,
-              fontWeight: FontWeight.w900,
-              color: speedColor(speed),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, animation) => ScaleTransition(
+              scale: Tween<double>(begin: .92, end: 1).animate(animation),
+              child: FadeTransition(opacity: animation, child: child),
+            ),
+            child: Text(
+              speed.toStringAsFixed(0),
+              key: ValueKey(speed.toStringAsFixed(0)),
+              style: TextStyle(
+                fontSize: compact ? 56 : 76,
+                height: 1.05,
+                fontWeight: FontWeight.w900,
+                color: speedColor(speed),
+              ),
             ),
           ),
           const Text(
@@ -376,6 +405,95 @@ class _SpeedHud extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _TripLaunchOverlay extends StatelessWidget {
+  const _TripLaunchOverlay({
+    required this.animation,
+    required this.destinationName,
+    required this.freeDrive,
+  });
+
+  final Animation<double> animation;
+  final String? destinationName;
+  final bool freeDrive;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: animation,
+    builder: (context, _) {
+      final progress = Curves.easeOutCubic.transform(animation.value);
+      final fade = (1 - (animation.value * 1.45)).clamp(0.0, 1.0);
+      return Opacity(
+        opacity: fade,
+        child: Transform.scale(
+          scale: 0.88 + (progress * .18),
+          child: Container(
+            color: AppColors.black.withValues(alpha: .76),
+            alignment: Alignment.center,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 28),
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              decoration: BoxDecoration(
+                color: AppColors.panel,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: AppColors.blue.withValues(alpha: .7)),
+                boxShadow: const [
+                  BoxShadow(color: AppColors.blueGlow, blurRadius: 32),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.blue.withValues(alpha: .16),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.blue, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.navigation_rounded,
+                      color: AppColors.blue,
+                      size: 34,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'TRIP LIVE',
+                    style: TextStyle(
+                      color: AppColors.blue,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    freeDrive
+                        ? 'Drive safely.'
+                        : (destinationName ?? 'Destination locked'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'GPS tracking and live speed are on',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.muted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _ElapsedHud extends ConsumerWidget {

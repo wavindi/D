@@ -11,6 +11,7 @@ import '../api/d_api.dart';
 class RunRepository {
   static const _runsKey = 'd_racing_runs_v3';
   static const _territoryKey = 'd_racing_territories_v1';
+  static const _unsyncedStartsKey = 'd_racing_unsynced_starts_v1';
 
   Future<RunRecord> save(RunRecord run) async {
     // Signed-in users store the canonical trip on the VPS. Keep a local copy
@@ -58,6 +59,16 @@ class RunRepository {
       _runsKey,
       jsonEncode(next.map((e) => e.toMap()).toList(growable: false)),
     );
+    final unsyncedStarts = {...?prefs.getStringList(_unsyncedStartsKey)};
+    if (DApi.instance.token != null && remoteSaved == null) {
+      unsyncedStarts.add(saved.startedAt.toIso8601String());
+    } else {
+      unsyncedStarts.remove(saved.startedAt.toIso8601String());
+    }
+    await prefs.setStringList(
+      _unsyncedStartsKey,
+      unsyncedStarts.toList(growable: false),
+    );
 
     final claimed = await getTerritories();
     for (final sample in run.samples) {
@@ -76,12 +87,37 @@ class RunRepository {
           _runsKey,
           jsonEncode(remote.map((e) => e.toMap()).toList(growable: false)),
         );
+        await prefs.setStringList(_unsyncedStartsKey, const []);
         return remote;
       } catch (_) {
         // Use the local cache if the VPS is temporarily unreachable.
       }
     }
     return _getLocal();
+  }
+
+  /// Removes a trip from the account when it has been synced, then refreshes
+  /// the local offline cache and territory cells derived from trip samples.
+  Future<void> delete(RunRecord run) async {
+    final prefs = await SharedPreferences.getInstance();
+    final unsyncedStarts = {...?prefs.getStringList(_unsyncedStartsKey)};
+    final isUnsynced = unsyncedStarts.contains(run.startedAt.toIso8601String());
+    if (DApi.instance.token != null && run.id != null && !isUnsynced) {
+      await DApi.instance.deleteTrip(run.id!);
+    }
+    final remaining = (await _getLocal())
+        .where((item) => !_isSameRun(item, run))
+        .toList(growable: false);
+    await prefs.setString(
+      _runsKey,
+      jsonEncode(remaining.map((e) => e.toMap()).toList(growable: false)),
+    );
+    unsyncedStarts.remove(run.startedAt.toIso8601String());
+    await prefs.setStringList(
+      _unsyncedStartsKey,
+      unsyncedStarts.toList(growable: false),
+    );
+    await _rebuildTerritories(prefs, remaining);
   }
 
   Future<List<RunRecord>> _getLocal() async {
@@ -100,6 +136,25 @@ class RunRepository {
   Future<Set<String>> getTerritories() async {
     final prefs = await SharedPreferences.getInstance();
     return {...?prefs.getStringList(_territoryKey)};
+  }
+
+  bool _isSameRun(RunRecord first, RunRecord second) {
+    if (first.id != null && second.id != null) return first.id == second.id;
+    return first.startedAt.toIso8601String() ==
+        second.startedAt.toIso8601String();
+  }
+
+  Future<void> _rebuildTerritories(
+    SharedPreferences prefs,
+    List<RunRecord> runs,
+  ) async {
+    final claimed = <String>{};
+    for (final run in runs) {
+      for (final sample in run.samples) {
+        claimed.add(_cellKey(sample.lat, sample.lng));
+      }
+    }
+    await prefs.setStringList(_territoryKey, claimed.toList(growable: false));
   }
 
   Future<DrivingStats> getStats() async {

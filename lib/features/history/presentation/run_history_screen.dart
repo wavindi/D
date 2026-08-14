@@ -4,11 +4,61 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/models/run_record.dart';
 import '../../run/application/run_providers.dart';
 
 class RunHistoryScreen extends ConsumerWidget {
   const RunHistoryScreen({super.key, this.onMenu});
   final VoidCallback? onMenu;
+
+  Future<void> _deleteTrip(
+    BuildContext context,
+    WidgetRef ref,
+    RunRecord run,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.panel,
+        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+        title: const Text('Delete this trip?'),
+        content: Text(
+          'This removes the ${formatDistance(run.distanceMeters)} trip from your history and territory.',
+          style: const TextStyle(color: AppColors.muted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('KEEP TRIP'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(runRepositoryProvider).delete(run);
+      ref.invalidate(runHistoryProvider);
+      ref.invalidate(drivingStatsProvider);
+      ref.invalidate(territoriesProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Trip deleted from your history.')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not delete trip: $error')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,84 +99,105 @@ class RunHistoryScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(16),
                   itemCount: runs.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (_, index) {
-                    final run = runs[index];
-                    return Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: AppColors.panel,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: AppColors.blue.withValues(alpha: .2),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.sports_motorsports_rounded,
-                                color: AppColors.blue,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  DateFormat(
-                                    'EEE, d MMM y • HH:mm',
-                                  ).format(run.startedAt),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '#${run.id}',
-                                style: const TextStyle(color: AppColors.muted),
-                              ),
-                            ],
-                          ),
-                          if (run.destinationName != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              run.destinationName!,
-                              style: const TextStyle(color: AppColors.muted),
-                            ),
-                          ],
-                          const Divider(height: 28),
-                          Row(
-                            children: [
-                              _HistoryStat(
-                                label: 'DISTANCE',
-                                value: formatDistance(run.distanceMeters),
-                              ),
-                              _HistoryStat(
-                                label: 'TOP',
-                                value:
-                                    '${run.topSpeedKmh.toStringAsFixed(0)} km/h',
-                              ),
-                              _HistoryStat(
-                                label: 'AVG',
-                                value:
-                                    '${run.averageSpeedKmh.toStringAsFixed(0)} km/h',
-                              ),
-                              _HistoryStat(
-                                label: 'TIME',
-                                value: formatDuration(
-                                  Duration(seconds: run.durationSeconds),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                  itemBuilder: (_, index) => _HistoryCard(
+                    run: runs[index],
+                    index: index,
+                    onDelete: () => _deleteTrip(context, ref, runs[index]),
+                  ),
                 ),
               ),
       ),
     );
   }
+}
+
+class _HistoryCard extends StatelessWidget {
+  const _HistoryCard({
+    required this.run,
+    required this.index,
+    required this.onDelete,
+  });
+  final RunRecord run;
+  final int index;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    duration: Duration(milliseconds: 240 + (index * 55)),
+    curve: Curves.easeOutCubic,
+    tween: Tween(begin: 0, end: 1),
+    builder: (context, value, child) => Opacity(
+      opacity: value,
+      child: Transform.translate(
+        offset: Offset(0, 18 * (1 - value)),
+        child: child,
+      ),
+    ),
+    child: Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.blue.withValues(alpha: .2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.sports_motorsports_rounded,
+                color: AppColors.blue,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  DateFormat('EEE, d MMM y • HH:mm').format(run.startedAt),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Delete trip',
+                onPressed: onDelete,
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppColors.muted,
+                ),
+              ),
+            ],
+          ),
+          if (run.destinationName != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              run.destinationName!,
+              style: const TextStyle(color: AppColors.muted),
+            ),
+          ],
+          const Divider(height: 28),
+          Row(
+            children: [
+              _HistoryStat(
+                label: 'DISTANCE',
+                value: formatDistance(run.distanceMeters),
+              ),
+              _HistoryStat(
+                label: 'TOP',
+                value: '${run.topSpeedKmh.toStringAsFixed(0)} km/h',
+              ),
+              _HistoryStat(
+                label: 'AVG',
+                value: '${run.averageSpeedKmh.toStringAsFixed(0)} km/h',
+              ),
+              _HistoryStat(
+                label: 'TIME',
+                value: formatDuration(Duration(seconds: run.durationSeconds)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _HistoryStat extends StatelessWidget {

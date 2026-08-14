@@ -40,11 +40,16 @@ def test_signup_login_and_trip_roundtrip():
         },
     )
     assert trip.status_code == 200
+    trip_id = trip.json()["id"]
 
     trips = client.get("/api/trips", headers=headers)
     assert trips.status_code == 200
     assert len(trips.json()["trips"]) == 1
     assert trips.json()["trips"][0]["top_speed_kmh"] == 80
+
+    deleted = client.delete(f"/api/trips/{trip_id}", headers=headers)
+    assert deleted.status_code == 200
+    assert client.get("/api/trips", headers=headers).json()["trips"] == []
 
     login = client.post(
         "/api/login",
