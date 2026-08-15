@@ -24,6 +24,7 @@ class SpeedSample {
 class RunRecord {
   const RunRecord({
     this.id,
+    this.clientTripId,
     required this.startedAt,
     required this.durationSeconds,
     required this.distanceMeters,
@@ -32,9 +33,16 @@ class RunRecord {
     this.destinationName,
     this.stoppedSeconds = 0,
     this.samples = const [],
+    this.syncState = 'synced',
+    this.activityType = 'drive',
+    this.trackId,
+    this.trackCenterLat,
+    this.trackCenterLng,
+    this.trackRadiusMeters,
   });
 
   final int? id;
+  final String? clientTripId;
   final DateTime startedAt;
   final int durationSeconds;
   final double distanceMeters;
@@ -43,9 +51,16 @@ class RunRecord {
   final String? destinationName;
   final int stoppedSeconds;
   final List<SpeedSample> samples;
+  final String syncState;
+  final String activityType;
+  final String? trackId;
+  final double? trackCenterLat;
+  final double? trackCenterLng;
+  final double? trackRadiusMeters;
 
   Map<String, Object?> toMap() => {
     'id': id,
+    'client_trip_id': clientTripId,
     'started_at': startedAt.toIso8601String(),
     'duration_seconds': durationSeconds,
     'distance_meters': distanceMeters,
@@ -54,6 +69,12 @@ class RunRecord {
     'destination_name': destinationName,
     'stopped_seconds': stoppedSeconds,
     'samples': samples.map((s) => s.toMap()).toList(growable: false),
+    'sync_state': syncState,
+    'activity_type': activityType,
+    'track_id': trackId,
+    'track_center_lat': trackCenterLat,
+    'track_center_lng': trackCenterLng,
+    'track_radius_meters': trackRadiusMeters,
   };
 
   factory RunRecord.fromMap(Map<String, Object?> map) {
@@ -67,6 +88,7 @@ class RunRecord {
         : const <SpeedSample>[];
     return RunRecord(
       id: map['id'] as int?,
+      clientTripId: map['client_trip_id'] as String?,
       startedAt: DateTime.parse(map['started_at'] as String),
       durationSeconds: map['duration_seconds'] as int,
       distanceMeters: (map['distance_meters'] as num).toDouble(),
@@ -75,8 +97,51 @@ class RunRecord {
       destinationName: map['destination_name'] as String?,
       stoppedSeconds: (map['stopped_seconds'] as int?) ?? 0,
       samples: samples,
+      syncState: (map['sync_state'] as String?) ?? 'synced',
+      activityType: (map['activity_type'] as String?) ?? 'drive',
+      trackId: map['track_id'] as String?,
+      trackCenterLat: (map['track_center_lat'] as num?)?.toDouble(),
+      trackCenterLng: (map['track_center_lng'] as num?)?.toDouble(),
+      trackRadiusMeters: (map['track_radius_meters'] as num?)?.toDouble(),
     );
   }
+
+  RunRecord copyWith({
+    int? id,
+    bool clearId = false,
+    String? clientTripId,
+    DateTime? startedAt,
+    int? durationSeconds,
+    double? distanceMeters,
+    double? topSpeedKmh,
+    double? averageSpeedKmh,
+    String? destinationName,
+    int? stoppedSeconds,
+    List<SpeedSample>? samples,
+    String? syncState,
+    String? activityType,
+    String? trackId,
+    double? trackCenterLat,
+    double? trackCenterLng,
+    double? trackRadiusMeters,
+  }) => RunRecord(
+    id: clearId ? null : (id ?? this.id),
+    clientTripId: clientTripId ?? this.clientTripId,
+    startedAt: startedAt ?? this.startedAt,
+    durationSeconds: durationSeconds ?? this.durationSeconds,
+    distanceMeters: distanceMeters ?? this.distanceMeters,
+    topSpeedKmh: topSpeedKmh ?? this.topSpeedKmh,
+    averageSpeedKmh: averageSpeedKmh ?? this.averageSpeedKmh,
+    destinationName: destinationName ?? this.destinationName,
+    stoppedSeconds: stoppedSeconds ?? this.stoppedSeconds,
+    samples: samples ?? this.samples,
+    syncState: syncState ?? this.syncState,
+    activityType: activityType ?? this.activityType,
+    trackId: trackId ?? this.trackId,
+    trackCenterLat: trackCenterLat ?? this.trackCenterLat,
+    trackCenterLng: trackCenterLng ?? this.trackCenterLng,
+    trackRadiusMeters: trackRadiusMeters ?? this.trackRadiusMeters,
+  );
 }
 
 class DrivingStats {

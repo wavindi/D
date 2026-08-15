@@ -183,6 +183,20 @@ class _HistoryCard extends StatelessWidget {
                 style: const TextStyle(color: AppColors.muted),
               ),
             ],
+            if (run.syncState != 'synced') ...[
+              const SizedBox(height: 8),
+              Text(
+                run.syncState == 'pendingCreate'
+                    ? 'PENDING SYNC'
+                    : 'SAVED ON THIS DEVICE',
+                style: const TextStyle(
+                  color: AppColors.blue,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
             const Divider(height: 28),
             Row(
               children: [

@@ -8,14 +8,16 @@ import 'package:latlong2/latlong.dart';
 import '../../../data/repositories/run_repository.dart';
 import '../../../domain/models/run_record.dart';
 
-final runRepositoryProvider = Provider<RunRepository>((ref) => RunRepository());
-final runHistoryProvider = FutureProvider<List<RunRecord>>(
+final runRepositoryProvider = Provider.autoDispose<RunRepository>(
+  (ref) => RunRepository(),
+);
+final runHistoryProvider = FutureProvider.autoDispose<List<RunRecord>>(
   (ref) => ref.watch(runRepositoryProvider).getAll(),
 );
-final drivingStatsProvider = FutureProvider<DrivingStats>(
+final drivingStatsProvider = FutureProvider.autoDispose<DrivingStats>(
   (ref) => ref.watch(runRepositoryProvider).getStats(),
 );
-final territoriesProvider = FutureProvider<Set<String>>(
+final territoriesProvider = FutureProvider.autoDispose<Set<String>>(
   (ref) => ref.watch(runRepositoryProvider).getTerritories(),
 );
 
@@ -121,6 +123,8 @@ class ActiveRunController extends Notifier<RunState> {
   static const _autoStartHold = Duration(seconds: 6);
   static const _autoStopSpeedKmh = 6.0;
   static const _autoStopHold = Duration(minutes: 2);
+  static const _maximumSamples = 10_000;
+  static const _maximumPositionAge = Duration(seconds: 15);
 
   Timer? _timer;
   StreamSubscription<Position>? _positionSubscription;
@@ -132,6 +136,8 @@ class ActiveRunController extends Notifier<RunState> {
   DateTime? _stoppedSince;
   DateTime? _endedAt;
   Duration _stoppedAccumulated = Duration.zero;
+  bool _starting = false;
+  LatLng? _lastTrackedPoint;
 
   @override
   RunState build() {
@@ -147,7 +153,25 @@ class ActiveRunController extends Notifier<RunState> {
     String? destinationName,
     bool freeDrive = false,
   }) async {
-    if (state.isActive) return;
+    if (state.isActive || _starting) return;
+    _starting = true;
+    try {
+      await _start(
+        destination: destination,
+        destinationName: destinationName,
+        freeDrive: freeDrive,
+      );
+    } finally {
+      _starting = false;
+    }
+  }
+
+  Future<void> _start({
+    LatLng? destination,
+    String? destinationName,
+    required bool freeDrive,
+  }) async {
+    await _stopAutoWatch();
     await _ensureLocationAccess();
     final initial = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.best),
@@ -161,6 +185,7 @@ class ActiveRunController extends Notifier<RunState> {
     _movingSince = null;
     _stoppedSince = null;
     final point = LatLng(initial.latitude, initial.longitude);
+    _lastTrackedPoint = point;
     state = RunState(
       isActive: true,
       isPaused: false,
@@ -196,9 +221,13 @@ class ActiveRunController extends Notifier<RunState> {
       accuracy: LocationAccuracy.bestForNavigation,
       distanceFilter: 2,
     );
-    _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: settings,
-    ).listen(_onPosition);
+    _positionSubscription =
+        Geolocator.getPositionStream(locationSettings: settings).listen(
+          _onPosition,
+          onError: (Object error) {
+            state = state.copyWith(autoTrackStatus: 'GPS error: $error');
+          },
+        );
   }
 
   Future<void> setAutoTrackEnabled(bool enabled) async {
@@ -223,7 +252,7 @@ class ActiveRunController extends Notifier<RunState> {
             distanceFilter: 3,
           ),
         ).listen((position) async {
-          if (state.isActive || !state.autoTrackEnabled) return;
+          if (state.isActive || _starting || !state.autoTrackEnabled) return;
           final speed = math.max(0.0, position.speed * 3.6);
           final now = DateTime.now();
           if (speed >= _autoStartSpeedKmh) {
@@ -235,7 +264,16 @@ class ActiveRunController extends Notifier<RunState> {
               currentSpeedKmh: speed,
             );
             if (held >= _autoStartHold) {
-              await start(freeDrive: true);
+              try {
+                await start(freeDrive: true);
+              } catch (error) {
+                state = state.copyWith(
+                  autoTrackStatus: 'Could not start: $error',
+                );
+                if (state.autoTrackEnabled && !state.isActive) {
+                  await _startAutoWatch();
+                }
+              }
             }
           } else {
             _movingSince = null;
@@ -296,13 +334,17 @@ class ActiveRunController extends Notifier<RunState> {
   void _onPosition(Position position) {
     if (!state.isActive || state.isPaused) return;
     if (position.accuracy > _maxAccuracyMeters) return;
+    if (DateTime.now().difference(position.timestamp).abs() >
+        _maximumPositionAge) {
+      return;
+    }
 
     final point = LatLng(position.latitude, position.longitude);
     final route = [...state.route];
     final samples = [...state.samples];
     var distance = state.distanceMeters;
-    if (route.isNotEmpty) {
-      final previous = route.last;
+    if (_lastTrackedPoint != null) {
+      final previous = _lastTrackedPoint!;
       final step = Geolocator.distanceBetween(
         previous.latitude,
         previous.longitude,
@@ -310,17 +352,18 @@ class ActiveRunController extends Notifier<RunState> {
         point.longitude,
       );
       if (step > _maxJumpMeters) return;
-      if (step < 1.5 && (position.speed * 3.6) < 1.5) {
-        // count near-stop
-      } else {
+      if (step >= 1.5 || (position.speed * 3.6) >= 1.5) {
         distance += step;
       }
     }
-    route.add(point);
+    _lastTrackedPoint = point;
+    if (route.length < _maximumSamples) route.add(point);
     final speed = math.max(0.0, position.speed * 3.6);
-    samples.add(
-      SpeedSample(lat: point.latitude, lng: point.longitude, speedKmh: speed),
-    );
+    if (samples.length < _maximumSamples) {
+      samples.add(
+        SpeedSample(lat: point.latitude, lng: point.longitude, speedKmh: speed),
+      );
+    }
 
     final now = DateTime.now();
     if (speed < _autoStopSpeedKmh) {
@@ -432,6 +475,7 @@ class ActiveRunController extends Notifier<RunState> {
     );
     state = finalState;
     await _stopTracking();
+    _lastTrackedPoint = null;
     final run = RunRecord(
       startedAt: finalState.startedAt!,
       durationSeconds: finalState.elapsed.inSeconds,

@@ -10,10 +10,7 @@ Future<void> pumpAuthAt(WidgetTester tester, Size size) async {
   addTearDown(tester.view.resetDevicePixelRatio);
 
   await tester.pumpWidget(
-    MaterialApp(
-      theme: AppTheme.dark,
-      home: const AuthScreen(),
-    ),
+    MaterialApp(theme: AppTheme.dark, home: const AuthScreen()),
   );
   await tester.pumpAndSettle();
 }

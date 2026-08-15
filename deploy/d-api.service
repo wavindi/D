@@ -5,9 +5,13 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/home/dali/user-files/d-api
+Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/home/dali/user-files/d-api/.venv/bin/uvicorn server:app --host 127.0.0.1 --port 8911 --app-dir /home/dali/user-files/d-api
 Restart=always
 RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
 
 [Install]
 WantedBy=default.target

@@ -7,8 +7,9 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../domain/models/run_record.dart';
 import '../../run/application/run_providers.dart';
+import 'geofence_gate.dart';
 
-enum RacerPhase { setup, armed, racing, finished }
+enum RacerPhase { setup, armed, racing, finishing, finished }
 
 class RacerState {
   const RacerState({
@@ -83,8 +84,16 @@ final racerProvider = NotifierProvider<RacerController, RacerState>(
 
 class RacerController extends Notifier<RacerState> {
   static const _maxAccuracyMeters = 40.0;
+  static const _maximumPositionAge = Duration(seconds: 15);
+  static const _minimumRaceDuration = Duration(seconds: 3);
+  static const _minimumRaceDistanceMeters = 10.0;
+  static const _maximumSamples = 5000;
+
   Timer? _timer;
   StreamSubscription<Position>? _subscription;
+  final GeofenceGate _gate = GeofenceGate();
+  bool _finishing = false;
+  LatLng? _lastTrackedPoint;
 
   @override
   RacerState build() {
@@ -96,7 +105,11 @@ class RacerController extends Notifier<RacerState> {
   }
 
   void selectTrack(LatLng center, {String? name}) {
-    if (state.phase == RacerPhase.racing) return;
+    if (state.phase == RacerPhase.armed ||
+        state.phase == RacerPhase.racing ||
+        state.phase == RacerPhase.finishing) {
+      return;
+    }
     state = state.copyWith(
       phase: RacerPhase.setup,
       trackCenter: center,
@@ -112,15 +125,25 @@ class RacerController extends Notifier<RacerState> {
   }
 
   void setRadius(double radius) {
-    if (state.phase == RacerPhase.racing) return;
+    if (state.phase == RacerPhase.armed ||
+        state.phase == RacerPhase.racing ||
+        state.phase == RacerPhase.finishing) {
+      return;
+    }
     state = state.copyWith(radiusMeters: radius.clamp(50, 200));
   }
 
   Future<void> arm() async {
-    if (state.phase == RacerPhase.racing) return;
+    if (state.phase == RacerPhase.armed ||
+        state.phase == RacerPhase.racing ||
+        state.phase == RacerPhase.finishing) {
+      return;
+    }
     try {
       await _ensureLocationAccess();
       await _subscription?.cancel();
+      _gate.reset();
+      _lastTrackedPoint = null;
       state = state.copyWith(
         phase: RacerPhase.armed,
         elapsed: Duration.zero,
@@ -149,10 +172,13 @@ class RacerController extends Notifier<RacerState> {
   }
 
   Future<void> cancel() async {
+    if (state.phase == RacerPhase.finishing) return;
     _timer?.cancel();
     _timer = null;
     await _subscription?.cancel();
     _subscription = null;
+    _gate.reset();
+    _lastTrackedPoint = null;
     state = state.copyWith(
       phase: RacerPhase.setup,
       elapsed: Duration.zero,
@@ -163,44 +189,70 @@ class RacerController extends Notifier<RacerState> {
     );
   }
 
+  Future<void> interruptForBackground() async {
+    if (state.phase != RacerPhase.armed && state.phase != RacerPhase.racing) {
+      return;
+    }
+    await cancel();
+    state = state.copyWith(
+      error: 'Racer stopped because the app left the foreground.',
+    );
+  }
+
   void _onPosition(Position position) {
     if (position.accuracy > _maxAccuracyMeters) return;
+    if (DateTime.now().difference(position.timestamp).abs() >
+        _maximumPositionAge) {
+      return;
+    }
     final point = LatLng(position.latitude, position.longitude);
-    final inside =
-        Geolocator.distanceBetween(
-          point.latitude,
-          point.longitude,
-          state.trackCenter.latitude,
-          state.trackCenter.longitude,
-        ) <=
-        state.radiusMeters;
+    final distanceToCenter = Geolocator.distanceBetween(
+      point.latitude,
+      point.longitude,
+      state.trackCenter.latitude,
+      state.trackCenter.longitude,
+    );
+
     if (state.phase == RacerPhase.armed) {
       state = state.copyWith(currentPosition: point);
-      if (inside) _startRace(position, point);
+      if (_gate.confirmEntry(
+        distanceMeters: distanceToCenter,
+        radiusMeters: state.radiusMeters,
+        accuracyMeters: position.accuracy,
+      )) {
+        _startRace(position, point);
+      }
       return;
     }
     if (state.phase != RacerPhase.racing) return;
-    if (!inside) {
+    if (_gate.confirmExit(
+      distanceMeters: distanceToCenter,
+      radiusMeters: state.radiusMeters,
+      accuracyMeters: position.accuracy,
+    )) {
       unawaited(_finishRace());
       return;
     }
 
     final samples = [...state.samples];
     var distance = state.distanceMeters;
-    if (samples.isNotEmpty) {
-      final last = samples.last;
+    if (_lastTrackedPoint != null) {
+      final last = _lastTrackedPoint!;
       final step = Geolocator.distanceBetween(
-        last.lat,
-        last.lng,
+        last.latitude,
+        last.longitude,
         point.latitude,
         point.longitude,
       );
       if (step <= 100) distance += step;
     }
+    _lastTrackedPoint = point;
     final speed = math.max(0.0, position.speed * 3.6);
-    samples.add(
-      SpeedSample(lat: point.latitude, lng: point.longitude, speedKmh: speed),
-    );
+    if (samples.length < _maximumSamples) {
+      samples.add(
+        SpeedSample(lat: point.latitude, lng: point.longitude, speedKmh: speed),
+      );
+    }
     state = state.copyWith(
       currentPosition: point,
       distanceMeters: distance,
@@ -212,6 +264,7 @@ class RacerController extends Notifier<RacerState> {
   void _startRace(Position position, LatLng point) {
     final now = DateTime.now();
     final speed = math.max(0.0, position.speed * 3.6);
+    _lastTrackedPoint = point;
     state = state.copyWith(
       phase: RacerPhase.racing,
       startedAt: now,
@@ -230,45 +283,88 @@ class RacerController extends Notifier<RacerState> {
   }
 
   Future<void> _finishRace() async {
-    if (state.phase != RacerPhase.racing || state.startedAt == null) return;
+    if (_finishing ||
+        state.phase != RacerPhase.racing ||
+        state.startedAt == null) {
+      return;
+    }
+    _finishing = true;
+    final snapshot = state;
+    state = state.copyWith(phase: RacerPhase.finishing);
     _timer?.cancel();
     _timer = null;
     await _subscription?.cancel();
     _subscription = null;
-    final elapsed = DateTime.now().difference(state.startedAt!);
-    final average = elapsed.inSeconds == 0
-        ? 0.0
-        : (state.distanceMeters / 1000) / (elapsed.inSeconds / 3600);
+    final elapsed = DateTime.now().difference(snapshot.startedAt!);
+
+    if (elapsed < _minimumRaceDuration ||
+        snapshot.distanceMeters < _minimumRaceDistanceMeters) {
+      state = state.copyWith(
+        phase: RacerPhase.finished,
+        elapsed: elapsed,
+        error: 'Race ignored: record at least 10 m over 3 seconds.',
+        clearResult: true,
+      );
+      _finishing = false;
+      return;
+    }
+
+    final average =
+        (snapshot.distanceMeters / 1000) /
+        (elapsed.inMilliseconds / Duration.millisecondsPerHour);
+    final trackId = _trackId(snapshot);
     final record = RunRecord(
-      startedAt: state.startedAt!,
+      startedAt: snapshot.startedAt!,
       durationSeconds: elapsed.inSeconds,
-      distanceMeters: state.distanceMeters,
-      topSpeedKmh: state.topSpeedKmh,
+      distanceMeters: snapshot.distanceMeters,
+      topSpeedKmh: snapshot.topSpeedKmh,
       averageSpeedKmh: average,
-      destinationName: 'Racer • ${state.trackName}',
-      samples: state.samples,
+      destinationName: 'Racer • ${snapshot.trackName}',
+      samples: snapshot.samples,
+      activityType: 'racer',
+      trackId: trackId,
+      trackCenterLat: snapshot.trackCenter.latitude,
+      trackCenterLng: snapshot.trackCenter.longitude,
+      trackRadiusMeters: snapshot.radiusMeters,
     );
-    final saved = await ref.read(runRepositoryProvider).save(record);
-    final all = await ref.read(runRepositoryProvider).getAll();
-    final comparable = all.where(
-      (run) =>
-          run.destinationName == saved.destinationName &&
-          run.startedAt != saved.startedAt &&
-          run.durationSeconds > 0,
-    );
-    final best = comparable.isEmpty
-        ? null
-        : comparable.map((run) => run.durationSeconds).reduce(math.min);
-    ref.invalidate(runHistoryProvider);
-    ref.invalidate(drivingStatsProvider);
-    ref.invalidate(territoriesProvider);
-    state = state.copyWith(
-      phase: RacerPhase.finished,
-      elapsed: elapsed,
-      result: saved,
-      personalBestSeconds: best,
-    );
+    try {
+      final saved = await ref.read(runRepositoryProvider).save(record);
+      final all = await ref.read(runRepositoryProvider).getAll();
+      final comparable = all.where(
+        (run) =>
+            run.activityType == 'racer' &&
+            run.trackId == trackId &&
+            run.clientTripId != saved.clientTripId &&
+            run.durationSeconds > 0,
+      );
+      final best = comparable.isEmpty
+          ? null
+          : comparable.map((run) => run.durationSeconds).reduce(math.min);
+      ref.invalidate(runHistoryProvider);
+      ref.invalidate(drivingStatsProvider);
+      ref.invalidate(territoriesProvider);
+      state = state.copyWith(
+        phase: RacerPhase.finished,
+        elapsed: elapsed,
+        result: saved,
+        personalBestSeconds: best,
+        clearError: true,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        phase: RacerPhase.finished,
+        elapsed: elapsed,
+        error: 'Could not preserve race result: $error',
+      );
+    } finally {
+      _finishing = false;
+    }
   }
+
+  String _trackId(RacerState value) =>
+      'zone:${value.trackCenter.latitude.toStringAsFixed(5)}:'
+      '${value.trackCenter.longitude.toStringAsFixed(5)}:'
+      '${value.radiusMeters.round()}';
 
   Future<void> _ensureLocationAccess() async {
     if (!await Geolocator.isLocationServiceEnabled()) {

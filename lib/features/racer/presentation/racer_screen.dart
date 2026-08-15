@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,12 +18,14 @@ class RacerScreen extends ConsumerStatefulWidget {
   ConsumerState<RacerScreen> createState() => _RacerScreenState();
 }
 
-class _RacerScreenState extends ConsumerState<RacerScreen> {
+class _RacerScreenState extends ConsumerState<RacerScreen>
+    with WidgetsBindingObserver {
   final _mapController = MapController();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     ref.listenManual(racerProvider.select((state) => state.currentPosition), (
       previous,
       next,
@@ -30,6 +34,19 @@ class _RacerScreenState extends ConsumerState<RacerScreen> {
         _mapController.move(next, 16);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      unawaited(ref.read(racerProvider.notifier).interruptForBackground());
+    }
   }
 
   @override
@@ -46,7 +63,8 @@ class _RacerScreenState extends ConsumerState<RacerScreen> {
               initialCenter: state.trackCenter,
               initialZoom: 14,
               onTap: (_, point) {
-                if (state.phase != RacerPhase.racing) {
+                if (state.phase == RacerPhase.setup ||
+                    state.phase == RacerPhase.finished) {
                   controller.selectTrack(point);
                   _mapController.move(point, 14);
                 }
@@ -156,6 +174,7 @@ class _StatusPill extends StatelessWidget {
       RacerPhase.setup => ('RACER // SELECT ZONE', AppColors.blue),
       RacerPhase.armed => ('RACER // WAITING FOR ENTRY', AppColors.blue),
       RacerPhase.racing => ('RACE LIVE // EXIT TO FINISH', AppColors.danger),
+      RacerPhase.finishing => ('RACE COMPLETE // SAVING', AppColors.blue),
       RacerPhase.finished => ('RACE COMPLETE', AppColors.blue),
     };
     return Container(
@@ -248,6 +267,7 @@ class _RacerConsole extends StatelessWidget {
   Widget build(BuildContext context) {
     final finished = state.phase == RacerPhase.finished;
     final active = state.phase == RacerPhase.racing;
+    final finishing = state.phase == RacerPhase.finishing;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -267,13 +287,24 @@ class _RacerConsole extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
+          const Text(
+            'CLOSED COURSE ONLY • Never operate this screen while driving.',
+            style: TextStyle(
+              color: AppColors.danger,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
           Text(
-            active
+            finishing
+                ? 'Preserving your result and synchronizing it.'
+                : active
                 ? 'Cross the boundary to lock your result.'
-                : 'Tap the map to place a start/finish zone. Enter it to start.',
+                : 'Tap the map to place a zone. Start outside, then enter it.',
             style: const TextStyle(color: AppColors.muted, fontSize: 12),
           ),
-          if (!active && !finished) ...[
+          if (!active && !finished && !finishing) ...[
             const SizedBox(height: 8),
             Row(
               children: [
@@ -303,7 +334,9 @@ class _RacerConsole extends StatelessWidget {
             _Comparison(state: state),
           ],
           const SizedBox(height: 12),
-          if (active || state.phase == RacerPhase.armed)
+          if (finishing)
+            LedButton(label: 'SAVING RESULT', busy: true, onPressed: null)
+          else if (active || state.phase == RacerPhase.armed)
             LedButton(
               label: active ? 'ABORT RACE' : 'CANCEL ARMING',
               danger: true,
@@ -339,7 +372,7 @@ class _Comparison extends StatelessWidget {
       ),
       child: Text(
         delta == null
-            ? 'FIRST LAP RECORDED • ${formatDuration(Duration(seconds: result.durationSeconds))}'
+            ? 'FIRST ZONE RESULT • ${formatDuration(Duration(seconds: result.durationSeconds))}'
             : delta <= 0
             ? 'NEW PERSONAL BEST • ${formatDuration(Duration(seconds: result.durationSeconds))}'
             : '${formatDuration(Duration(seconds: delta))} BEHIND YOUR BEST',

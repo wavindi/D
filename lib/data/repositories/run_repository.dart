@@ -1,169 +1,279 @@
 import 'dart:convert';
-import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/models/run_record.dart';
 import '../api/d_api.dart';
 
 class RunRepository {
-  static const _runsKey = 'd_racing_runs_v3';
-  static const _territoryKey = 'd_racing_territories_v1';
-  static const _unsyncedStartsKey = 'd_racing_unsynced_starts_v1';
-  static const _deletedTripKeys = 'd_racing_deleted_trip_keys_v1';
+  RunRepository({
+    TripApi? api,
+    Future<SharedPreferences> Function()? preferences,
+    Uuid? uuid,
+  }) : _api = api ?? DApi.instance,
+       _preferences = preferences ?? SharedPreferences.getInstance,
+       _uuid = uuid ?? const Uuid();
+
+  static const _runsPrefix = 'd_racing_runs_v4';
+  static const _territoryPrefix = 'd_racing_territories_v2';
+  static const _pendingDeletesPrefix = 'd_racing_pending_deletes_v1';
+  static const _legacyRunsKey = 'd_racing_runs_v3';
+  static const _legacyTerritoryKey = 'd_racing_territories_v1';
+  static const _legacyUnsyncedKey = 'd_racing_unsynced_starts_v1';
+  static const _legacyDeletedKey = 'd_racing_deleted_trip_keys_v1';
+
+  final TripApi _api;
+  final Future<SharedPreferences> Function() _preferences;
+  final Uuid _uuid;
+  Future<List<RunRecord>>? _refreshing;
+
+  String get _scope => _api.user == null ? 'guest' : 'user_${_api.user!.id}';
+  String get _runsKey => '${_runsPrefix}_$_scope';
+  String get _territoryKey => '${_territoryPrefix}_$_scope';
+  String get _pendingDeletesKey => '${_pendingDeletesPrefix}_$_scope';
+  String get _migrationKey => 'd_racing_storage_migrated_$_scope';
 
   Future<RunRecord> save(RunRecord run) async {
-    // Signed-in users store the canonical trip on the VPS. Keep a local copy
-    // as an offline cache so the app remains useful during weak connectivity.
-    RunRecord? remoteSaved;
-    if (DApi.instance.token != null) {
-      try {
-        remoteSaved = await DApi.instance.saveTrip(run);
-      } on TimeoutException {
-        // The local cache remains the durable fallback while offline.
-      } on http.ClientException {
-        // A connection or DNS failure must not discard a completed trip.
-      }
-    }
+    final prefs = await _preferences();
+    await _migrateLegacyIfNeeded(prefs);
+    final existing = _readLocal(prefs);
+    final local = run.copyWith(
+      clientTripId: run.clientTripId ?? _uuid.v4(),
+      syncState: _api.token == null ? 'local' : 'pendingCreate',
+    );
+    final next = [local, ...existing.where((item) => !_isSameRun(item, local))];
+    await _writeLocal(prefs, next);
+    await _rebuildTerritories(prefs, next);
 
-    final prefs = await SharedPreferences.getInstance();
-    final existing = await _getLocal();
-    final id =
-        remoteSaved?.id ??
-        ((existing.isEmpty
-                ? 0
-                : existing
-                      .map((e) => e.id ?? 0)
-                      .reduce((a, b) => a > b ? a : b)) +
-            1);
-    final saved = RunRecord(
-      id: id,
-      startedAt: run.startedAt,
-      durationSeconds: run.durationSeconds,
-      distanceMeters: run.distanceMeters,
-      topSpeedKmh: run.topSpeedKmh,
-      averageSpeedKmh: run.averageSpeedKmh,
-      destinationName: run.destinationName,
-      stoppedSeconds: run.stoppedSeconds,
-      samples: run.samples,
-    );
-    final deletedKeys = {...?prefs.getStringList(_deletedTripKeys)};
-    deletedKeys.remove(_tripKey(saved));
-    await prefs.setStringList(_deletedTripKeys, deletedKeys.toList());
-    final next = [
-      saved,
-      ...existing.where(
-        (item) =>
-            item.startedAt.toIso8601String() != run.startedAt.toIso8601String(),
-      ),
-    ];
-    await prefs.setString(
-      _runsKey,
-      jsonEncode(next.map((e) => e.toMap()).toList(growable: false)),
-    );
-    final unsyncedStarts = {...?prefs.getStringList(_unsyncedStartsKey)};
-    if (DApi.instance.token != null && remoteSaved == null) {
-      unsyncedStarts.add(saved.startedAt.toIso8601String());
-    } else {
-      unsyncedStarts.remove(saved.startedAt.toIso8601String());
+    if (_api.token == null) return local;
+    try {
+      final remote = await _api.saveTrip(local);
+      final reconciled = [
+        remote.copyWith(syncState: 'synced'),
+        ...next.where((item) => !_isSameRun(item, local)),
+      ];
+      await _writeLocal(prefs, reconciled);
+      await _rebuildTerritories(prefs, reconciled);
+      return remote.copyWith(syncState: 'synced');
+    } catch (_) {
+      // The local outbox is the durable success boundary. Synchronization is
+      // retried by getAll() without losing the completed trip.
+      return local;
     }
-    await prefs.setStringList(
-      _unsyncedStartsKey,
-      unsyncedStarts.toList(growable: false),
-    );
-
-    final claimed = await getTerritories();
-    for (final sample in run.samples) {
-      claimed.add(_cellKey(sample.lat, sample.lng));
-    }
-    await prefs.setStringList(_territoryKey, claimed.toList(growable: false));
-    return saved;
   }
 
-  Future<List<RunRecord>> getAll() async {
-    if (DApi.instance.token != null) {
-      try {
-        final remote = await DApi.instance.fetchTrips();
-        final prefs = await SharedPreferences.getInstance();
-        final deletedKeys = {...?prefs.getStringList(_deletedTripKeys)};
-        final visible = remote
-            .where((run) => !deletedKeys.contains(_tripKey(run)))
-            .toList(growable: false);
-        await prefs.setString(
-          _runsKey,
-          jsonEncode(visible.map((e) => e.toMap()).toList(growable: false)),
-        );
-        await prefs.setStringList(_unsyncedStartsKey, const []);
-        return visible;
-      } catch (_) {
-        // Use the local cache if the VPS is temporarily unreachable.
-      }
-    }
-    return _getLocal();
+  Future<List<RunRecord>> getAll() {
+    final current = _refreshing;
+    if (current != null) return current;
+    final future = _getAllInternal();
+    _refreshing = future;
+    return future.whenComplete(() {
+      if (identical(_refreshing, future)) _refreshing = null;
+    });
   }
 
-  /// Removes a trip from the account when it has been synced, then refreshes
-  /// the local offline cache and territory cells derived from trip samples.
+  Future<List<RunRecord>> _getAllInternal() async {
+    final prefs = await _preferences();
+    await _migrateLegacyIfNeeded(prefs);
+    var local = _readLocal(prefs);
+    if (_api.token == null) return _sorted(local);
+
+    local = await _flushPendingCreates(prefs, local);
+    await _flushPendingDeletes(prefs);
+    try {
+      final remote = await _api.fetchTrips();
+      final pendingDeleteIds = _pendingDeleteIds(prefs);
+      final visibleRemote = remote
+          .where((run) => run.id == null || !pendingDeleteIds.contains(run.id))
+          .map((run) => run.copyWith(syncState: 'synced'))
+          .toList(growable: true);
+      final pendingLocal = local.where((run) => run.syncState != 'synced');
+      for (final run in pendingLocal) {
+        if (!visibleRemote.any((item) => _isSameRun(item, run))) {
+          visibleRemote.add(run);
+        }
+      }
+      final merged = _sorted(visibleRemote);
+      await _writeLocal(prefs, merged);
+      await _rebuildTerritories(prefs, merged);
+      return merged;
+    } catch (_) {
+      // Authentication and transport errors must not destroy the local outbox.
+      final safe = _sorted(local);
+      await _writeLocal(prefs, safe);
+      await _rebuildTerritories(prefs, safe);
+      return safe;
+    }
+  }
+
   Future<void> delete(RunRecord run) async {
-    final prefs = await SharedPreferences.getInstance();
-    final unsyncedStarts = {...?prefs.getStringList(_unsyncedStartsKey)};
-    final isUnsynced = unsyncedStarts.contains(run.startedAt.toIso8601String());
-    if (DApi.instance.token != null && run.id != null && !isUnsynced) {
+    final prefs = await _preferences();
+    await _migrateLegacyIfNeeded(prefs);
+    final remaining = _readLocal(
+      prefs,
+    ).where((item) => !_isSameRun(item, run)).toList(growable: false);
+    await _writeLocal(prefs, remaining);
+    await _rebuildTerritories(prefs, remaining);
+
+    if (_api.token == null ||
+        run.id == null ||
+        run.syncState == 'pendingCreate') {
+      return;
+    }
+    final pending = _pendingDeleteIds(prefs)..add(run.id!);
+    await _writePendingDeletes(prefs, pending);
+    try {
+      await _api.deleteTrip(run.id!);
+      pending.remove(run.id!);
+      await _writePendingDeletes(prefs, pending);
+    } catch (_) {
+      // Keep the server ID in the delete outbox for the next refresh.
+    }
+  }
+
+  Future<List<RunRecord>> _flushPendingCreates(
+    SharedPreferences prefs,
+    List<RunRecord> local,
+  ) async {
+    final next = [...local];
+    for (var index = 0; index < next.length; index++) {
+      final run = next[index];
+      if (run.syncState != 'pendingCreate') continue;
       try {
-        await DApi.instance.deleteTrip(run.id!);
+        next[index] = (await _api.saveTrip(run)).copyWith(syncState: 'synced');
+        await _writeLocal(prefs, next);
       } catch (_) {
-        // The app may be ahead of the deployed API. Keep a local tombstone so
-        // deletion is still immediate and the remote cache cannot restore it.
+        // Leave this record pending and continue syncing independent trips.
       }
     }
-    final deletedKeys = {...?prefs.getStringList(_deletedTripKeys)};
-    deletedKeys.add(_tripKey(run));
-    await prefs.setStringList(_deletedTripKeys, deletedKeys.toList());
-    final remaining = (await _getLocal())
-        .where((item) => !_isSameRun(item, run))
-        .toList(growable: false);
-    await prefs.setString(
-      _runsKey,
-      jsonEncode(remaining.map((e) => e.toMap()).toList(growable: false)),
-    );
-    unsyncedStarts.remove(run.startedAt.toIso8601String());
-    await prefs.setStringList(
-      _unsyncedStartsKey,
-      unsyncedStarts.toList(growable: false),
-    );
-    await _rebuildTerritories(prefs, remaining);
+    return next;
   }
 
-  Future<List<RunRecord>> _getLocal() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw =
-        prefs.getString(_runsKey) ?? prefs.getString('d_racing_runs_v2');
+  Future<void> _flushPendingDeletes(SharedPreferences prefs) async {
+    final pending = _pendingDeleteIds(prefs);
+    for (final id in [...pending]) {
+      try {
+        await _api.deleteTrip(id);
+        pending.remove(id);
+        await _writePendingDeletes(prefs, pending);
+      } catch (_) {
+        // Keep failed deletes in the outbox.
+      }
+    }
+  }
+
+  List<RunRecord> _readLocal(SharedPreferences prefs) {
+    final raw = prefs.getString(_runsKey);
     if (raw == null || raw.isEmpty) return const [];
-    final list = jsonDecode(raw) as List<dynamic>;
-    final deletedKeys = {...?prefs.getStringList(_deletedTripKeys)};
-    return list
-        .map(
-          (item) => RunRecord.fromMap(Map<String, Object?>.from(item as Map)),
-        )
-        .where((run) => !deletedKeys.contains(_tripKey(run)))
-        .toList(growable: false);
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      return list
+          .map(
+            (item) => RunRecord.fromMap(Map<String, Object?>.from(item as Map)),
+          )
+          .toList(growable: false);
+    } catch (_) {
+      // Preserve the corrupt value for diagnostics instead of deleting it.
+      return const [];
+    }
   }
 
-  Future<Set<String>> getTerritories() async {
-    final prefs = await SharedPreferences.getInstance();
-    return {...?prefs.getStringList(_territoryKey)};
+  Future<void> _writeLocal(SharedPreferences prefs, List<RunRecord> runs) =>
+      prefs.setString(
+        _runsKey,
+        jsonEncode(runs.map((run) => run.toMap()).toList(growable: false)),
+      );
+
+  Set<int> _pendingDeleteIds(SharedPreferences prefs) {
+    final result = <int>{};
+    for (final raw
+        in prefs.getStringList(_pendingDeletesKey) ?? const <String>[]) {
+      final id = int.tryParse(raw);
+      if (id != null) result.add(id);
+    }
+    return result;
+  }
+
+  Future<void> _writePendingDeletes(SharedPreferences prefs, Set<int> ids) =>
+      prefs.setStringList(
+        _pendingDeletesKey,
+        ids.map((id) => '$id').toList(growable: false),
+      );
+
+  Future<void> _migrateLegacyIfNeeded(SharedPreferences prefs) async {
+    if (_api.user == null || prefs.getBool(_migrationKey) == true) return;
+    var legacyRunsMigrated = true;
+    if (!prefs.containsKey(_runsKey)) {
+      final raw =
+          prefs.getString(_legacyRunsKey) ??
+          prefs.getString('d_racing_runs_v2');
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          final unsynced = {...?prefs.getStringList(_legacyUnsyncedKey)};
+          final decoded = jsonDecode(raw) as List<dynamic>;
+          final migrated = decoded
+              .map((item) {
+                final run = RunRecord.fromMap(
+                  Map<String, Object?>.from(item as Map),
+                );
+                final pending = unsynced.contains(
+                  run.startedAt.toIso8601String(),
+                );
+                return run.copyWith(
+                  clientTripId: run.clientTripId ?? _uuid.v4(),
+                  syncState: pending ? 'pendingCreate' : 'synced',
+                );
+              })
+              .toList(growable: false);
+          await _writeLocal(prefs, migrated);
+        } catch (_) {
+          // Leave malformed legacy data untouched for manual recovery.
+          legacyRunsMigrated = false;
+        }
+      }
+    }
+    if (!legacyRunsMigrated) return;
+    final oldTerritories = prefs.getStringList(_legacyTerritoryKey);
+    if (!prefs.containsKey(_territoryKey) && oldTerritories != null) {
+      await prefs.setStringList(_territoryKey, oldTerritories);
+    }
+    final oldDeleted =
+        prefs.getStringList(_legacyDeletedKey) ?? const <String>[];
+    final pendingIds = _pendingDeleteIds(prefs);
+    for (final key in oldDeleted) {
+      final id = int.tryParse(key.split(':').first);
+      if (id != null) pendingIds.add(id);
+    }
+    await _writePendingDeletes(prefs, pendingIds);
+    await prefs.setBool(_migrationKey, true);
+    await prefs.remove(_legacyRunsKey);
+    await prefs.remove('d_racing_runs_v2');
+    await prefs.remove(_legacyTerritoryKey);
+    await prefs.remove(_legacyUnsyncedKey);
+    await prefs.remove(_legacyDeletedKey);
+  }
+
+  List<RunRecord> _sorted(Iterable<RunRecord> runs) {
+    final result = runs.toList(growable: false);
+    result.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    return result;
   }
 
   bool _isSameRun(RunRecord first, RunRecord second) {
+    if (first.clientTripId != null && second.clientTripId != null) {
+      return first.clientTripId == second.clientTripId;
+    }
     if (first.id != null && second.id != null) return first.id == second.id;
-    return first.startedAt.toIso8601String() ==
-        second.startedAt.toIso8601String();
+    return first.startedAt.toUtc() == second.startedAt.toUtc();
   }
 
-  String _tripKey(RunRecord run) =>
-      '${run.id ?? 'local'}:${run.startedAt.toIso8601String()}';
+  Future<Set<String>> getTerritories() async {
+    final prefs = await _preferences();
+    await _migrateLegacyIfNeeded(prefs);
+    return {...?prefs.getStringList(_territoryKey)};
+  }
 
   Future<void> _rebuildTerritories(
     SharedPreferences prefs,
@@ -179,7 +289,9 @@ class RunRepository {
   }
 
   Future<DrivingStats> getStats() async {
-    final runs = await getAll();
+    final runs = (await getAll())
+        .where((run) => run.activityType != 'racer')
+        .toList(growable: false);
     if (runs.isEmpty) {
       return const DrivingStats(
         totalDistanceMeters: 0,
@@ -214,7 +326,7 @@ class RunRepository {
     );
   }
 
-  /// ~180m grid cells.
+  /// Approximately 180 m grid cells.
   static String _cellKey(double lat, double lng) {
     final y = (lat * 600).floor();
     final x = (lng * 600).floor();

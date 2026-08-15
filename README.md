@@ -52,6 +52,29 @@ flutter test
 flutter run
 ```
 
+The verified toolchain is Flutter `3.47.0` / Dart `3.13.0`. CI and the VPS
+deployment use the committed `pubspec.lock`; use the same Flutter release when
+changing dependencies.
+
+Override the API endpoint at build time when targeting a non-default server:
+
+```bash
+flutter run --dart-define=D_API_BASE_URL=https://your-api.example
+```
+
+## V1 data reliability
+
+- Completed trips are written to a user-scoped local outbox before networking.
+- Pending creates and deletes retry when history refreshes.
+- Client-generated UUIDs make trip uploads idempotent.
+- Authentication tokens are stored with `flutter_secure_storage` and migrated
+  away from legacy preferences.
+- Racer uses confirmed outside-to-inside and inside-to-outside transitions with
+  GPS hysteresis. Racer is intentionally foreground-only and stops if the app
+  is backgrounded.
+- Racer results carry stable track metadata and do not inflate normal driving
+  statistics.
+
 Web build:
 
 ```bash
