@@ -1,3 +1,5 @@
+// ignore: unnecessary_import -- required by Flutter 3.47 for this transition.
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';

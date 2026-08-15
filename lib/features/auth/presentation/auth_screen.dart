@@ -112,7 +112,10 @@ class _AuthScreenState extends State<AuthScreen> {
                   obscureText: true,
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _submit(),
-                  decoration: const InputDecoration(hintText: 'Password'),
+                  decoration: InputDecoration(
+                    hintText: 'Password',
+                    helperText: _signup ? 'Use at least 10 characters' : null,
+                  ),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 14),
