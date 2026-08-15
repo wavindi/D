@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/services/recording_lease.dart';
 import '../../../data/repositories/run_repository.dart';
 import '../../../domain/models/run_record.dart';
 
@@ -144,6 +145,7 @@ class ActiveRunController extends Notifier<RunState> {
     ref.onDispose(() {
       unawaited(_stopTracking());
       unawaited(_stopAutoWatch());
+      ref.read(recordingLeaseProvider).release(RecordingOwner.activeRun);
     });
     return const RunState();
   }
@@ -154,6 +156,8 @@ class ActiveRunController extends Notifier<RunState> {
     bool freeDrive = false,
   }) async {
     if (state.isActive || _starting) return;
+    final lease = ref.read(recordingLeaseProvider);
+    lease.acquire(RecordingOwner.activeRun);
     _starting = true;
     try {
       await _start(
@@ -161,6 +165,9 @@ class ActiveRunController extends Notifier<RunState> {
         destinationName: destinationName,
         freeDrive: freeDrive,
       );
+    } catch (_) {
+      lease.release(RecordingOwner.activeRun);
+      rethrow;
     } finally {
       _starting = false;
     }
@@ -486,15 +493,20 @@ class ActiveRunController extends Notifier<RunState> {
       stoppedSeconds: finalState.stoppedSeconds,
       samples: finalState.samples,
     );
-    final saved = await ref.read(runRepositoryProvider).save(run);
-    ref.invalidate(runHistoryProvider);
-    ref.invalidate(drivingStatsProvider);
-    ref.invalidate(territoriesProvider);
+    late final RunRecord saved;
     final keepAuto = finalState.autoTrackEnabled;
-    state = RunState(
-      autoTrackEnabled: keepAuto,
-      autoTrackStatus: keepAuto ? 'Watching for movement…' : 'Idle',
-    );
+    try {
+      saved = await ref.read(runRepositoryProvider).save(run);
+      ref.invalidate(runHistoryProvider);
+      ref.invalidate(drivingStatsProvider);
+      ref.invalidate(territoriesProvider);
+      state = RunState(
+        autoTrackEnabled: keepAuto,
+        autoTrackStatus: keepAuto ? 'Watching for movement…' : 'Idle',
+      );
+    } finally {
+      ref.read(recordingLeaseProvider).release(RecordingOwner.activeRun);
+    }
     if (keepAuto) {
       await _startAutoWatch();
     }
