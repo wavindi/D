@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_DIR="${REPO_DIR:-/home/dali/user-files/github-repos/D}"
 APP_ROOT="${APP_ROOT:-/home/dali/user-files/test-site}"
 API_ROOT="${API_ROOT:-/home/dali/user-files/d-api}"
+D_API_BASE_URL="${D_API_BASE_URL:-https://test.wajdi.site}"
 
 FLUTTER_ROOT="${FLUTTER_ROOT:-/home/dali/flutter-3.47}"
 export PATH="$FLUTTER_ROOT/bin:$PATH"
@@ -11,7 +12,8 @@ cd "$REPO_DIR"
 flutter pub get --enforce-lockfile
 flutter analyze
 flutter test
-flutter build web --release --base-href /
+flutter build web --release --base-href / \
+  --dart-define="D_API_BASE_URL=$D_API_BASE_URL"
 
 rm -rf "$APP_ROOT"
 mkdir -p "$APP_ROOT"
