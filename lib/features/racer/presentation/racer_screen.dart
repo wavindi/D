@@ -299,6 +299,10 @@ class _RacerConsole extends StatelessWidget {
           Text(
             finishing
                 ? 'Preserving your result and synchronizing it.'
+                : state.phase == RacerPhase.armed
+                ? state.outsideConfirmed
+                      ? 'READY // Enter the zone to start.'
+                      : 'Move fully outside the zone to confirm the start.'
                 : active
                 ? 'Cross the boundary to lock your result.'
                 : 'Tap the map to place a zone. Start outside, then enter it.',
