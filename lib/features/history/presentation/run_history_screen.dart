@@ -66,18 +66,12 @@ class RunHistoryScreen extends ConsumerWidget {
     final history = ref.watch(runHistoryProvider);
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: onMenu == null,
-        leading: onMenu == null
-            ? null
-            : IconButton(
-                onPressed: onMenu,
-                icon: const Icon(Icons.menu_rounded),
-              ),
         title: const Text(
           'RUN HISTORY',
           style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
         ),
         backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
       body: history.when(
         loading: () => const Center(

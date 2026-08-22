@@ -1,173 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../data/api/d_api.dart';
-import '../../features/auth/presentation/auth_screen.dart';
-import '../../features/history/presentation/run_history_screen.dart';
+import '../../core/theme/racing_theme.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/leaderboard/presentation/leaderboard_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/racer/presentation/racer_screen.dart';
 import '../../features/stats/presentation/stats_screen.dart';
 import '../../features/territory/presentation/territory_screen.dart';
 
-class AppShell extends StatefulWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
-  final _scaffoldKey = GlobalKey<ScaffoldState>();
+class _AppShellState extends ConsumerState<AppShell> {
   int _index = 0;
 
-  static const _items = [
-    (Icons.navigation_rounded, 'Drive'),
-    (Icons.insights_rounded, 'Stats'),
-    (Icons.public_rounded, 'Territory'),
-    (Icons.emoji_events_rounded, 'Ranks'),
-    (Icons.flag_rounded, 'Racer'),
-    (Icons.history_rounded, 'Trips'),
+  static const _tabs = <_Tab>[
+    _Tab(Icons.navigation_rounded, 'Drive', _HomeBody()),
+    _Tab(Icons.insights_rounded, 'Stats', StatsScreen()),
+    _Tab(Icons.public_rounded, 'Territory', TerritoryScreen()),
+    _Tab(Icons.emoji_events_rounded, 'Ranks', LeaderboardScreen()),
+    _Tab(Icons.flag_rounded, 'Racer', RacerScreen()),
+    _Tab(Icons.person_rounded, 'Profile', ProfileScreen()),
   ];
-
-  void _openMenu() => _scaffoldKey.currentState?.openDrawer();
-
-  void _go(int index) {
-    setState(() => _index = index);
-    Navigator.of(context).maybePop();
-  }
-
-  Future<void> _logout() async {
-    await DApi.instance.logout();
-    if (!mounted) return;
-    Navigator.of(
-      context,
-    ).pushAndRemoveUntil(_fadeRoute(const AuthScreen()), (_) => false);
-  }
-
-  Widget _page() {
-    return switch (_index) {
-      1 => StatsScreen(onMenu: _openMenu),
-      2 => TerritoryScreen(onMenu: _openMenu),
-      3 => LeaderboardScreen(onMenu: _openMenu),
-      4 => RacerScreen(onMenu: _openMenu),
-      5 => RunHistoryScreen(onMenu: _openMenu),
-      _ => HomeScreen(onMenu: _openMenu),
-    };
-  }
 
   @override
   Widget build(BuildContext context) {
-    final user = DApi.instance.user;
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
+    final navBarColor = isLight ? Colors.white : const Color(0xFF070B12);
+    final current = _tabs[_index];
     return Scaffold(
-      key: _scaffoldKey,
-      drawer: Drawer(
-        backgroundColor: const Color(0xFF070B12),
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.blue, width: 2),
-                        boxShadow: const [
-                          BoxShadow(color: AppColors.blueGlow, blurRadius: 16),
-                        ],
-                      ),
-                      child: const Text(
-                        'D',
-                        style: TextStyle(
-                          color: AppColors.blue,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user?.name ?? 'Driver',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 18,
-                            ),
-                          ),
-                          Text(
-                            user?.email ?? 'Local session',
-                            style: const TextStyle(
-                              color: AppColors.muted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Text(
-                  'MENU',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              for (var i = 0; i < _items.length; i++)
-                _DrawerTile(
-                  icon: _items[i].$1,
-                  label: _items[i].$2,
-                  selected: _index == i,
-                  onTap: () => _go(i),
-                ),
-              const Spacer(),
-              if (DApi.instance.token != null)
-                ListTile(
-                  leading: const Icon(
-                    Icons.logout_rounded,
-                    color: AppColors.danger,
-                  ),
-                  title: const Text('Log out'),
-                  onTap: _logout,
-                )
-              else
-                ListTile(
-                  leading: const Icon(
-                    Icons.login_rounded,
-                    color: AppColors.blue,
-                  ),
-                  title: const Text('Sign in'),
-                  onTap: () => Navigator.of(
-                    context,
-                  ).push(_fadeRoute(const AuthScreen())),
-                ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
       body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 280),
+        duration: const Duration(milliseconds: 260),
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
         transitionBuilder: (child, animation) {
           final offset = Tween<Offset>(
-            begin: const Offset(0.04, 0.02),
+            begin: const Offset(0.03, 0.02),
             end: Offset.zero,
           ).animate(animation);
           return FadeTransition(
@@ -175,20 +49,107 @@ class _AppShellState extends State<AppShell> {
             child: SlideTransition(position: offset, child: child),
           );
         },
-        child: KeyedSubtree(key: ValueKey(_index), child: _page()),
+        child: KeyedSubtree(
+          key: ValueKey(_index),
+          child: _index == 0 ? const HomeScreen() : current.body,
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: navBarColor,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isLight ? 0.06 : 0.4),
+              blurRadius: 18,
+              offset: const Offset(0, -4),
+            ),
+          ],
+          border: Border(
+            top: BorderSide(
+              color: isLight ? Colors.grey.shade200 : Colors.white10,
+            ),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            child: Stack(
+              children: [
+                // Sliding active indicator
+                AnimatedAlign(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment(
+                    (_index / (_tabs.length - 1)) * 2 - 1,
+                    0,
+                  ),
+                  child: Container(
+                    width: MediaQuery.of(context).size.width /
+                            _tabs.length -
+                        20,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          RaceColors.neonBlue.withValues(alpha: .22),
+                          RaceColors.neonBlue.withValues(alpha: .05),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: RaceColors.neonBlue.withValues(alpha: .5),
+                      ),
+                      boxShadow: [
+                        RaceColors.glow(RaceColors.neonBlue, .35),
+                      ],
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    for (var i = 0; i < _tabs.length; i++)
+                      Expanded(
+                        child: _NavItem(
+                          icon: _tabs[i].icon,
+                          label: _tabs[i].label,
+                          selected: _index == i,
+                          onTap: () => setState(() => _index = i),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-class _DrawerTile extends StatelessWidget {
-  const _DrawerTile({
+class _Tab {
+  const _Tab(this.icon, this.label, this.body);
+  final IconData icon;
+  final String label;
+  final Widget body;
+}
+
+/// Home is handled specially because it owns the map/start-flow with its own
+/// app bar, so we expose a thin wrapper only used when not the active tab.
+class _HomeBody extends StatelessWidget {
+  const _HomeBody();
+  @override
+  Widget build(BuildContext context) => const HomeScreen();
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
     required this.icon,
     required this.label,
     required this.selected,
     required this.onTap,
   });
-
   final IconData icon;
   final String label;
   final bool selected;
@@ -196,50 +157,45 @@ class _DrawerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.blue.withValues(alpha: .16)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected
-                ? AppColors.blue.withValues(alpha: .55)
-                : Colors.transparent,
-          ),
-        ),
-        child: ListTile(
-          leading: Icon(
-            icon,
-            color: selected ? AppColors.blue : AppColors.muted,
-          ),
-          title: Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              color: selected ? Colors.white : AppColors.muted,
+    final accent = RaceColors.neonBlue;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: selected ? accent.withValues(alpha: 0.14) : null,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: selected
+                    ? [RaceColors.glow(accent, .5)]
+                    : null,
+              ),
+              child: Icon(
+                icon,
+                size: 22,
+                color: selected ? accent : Theme.of(context).hintColor,
+              ),
             ),
-          ),
-          onTap: onTap,
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
+                color: selected ? accent : Theme.of(context).hintColor,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
-}
-
-Route<T> _fadeRoute<T>(Widget page) {
-  return PageRouteBuilder<T>(
-    pageBuilder: (_, _, _) => page,
-    transitionsBuilder: (_, animation, _, child) {
-      return FadeTransition(
-        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-        child: child,
-      );
-    },
-  );
 }
 
 Route<T> slideUpRoute<T>(Widget page) {

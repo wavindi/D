@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/racing_theme.dart';
+import '../../../shared/widgets/race_widgets.dart';
 import '../../../data/repositories/run_repository.dart';
 import '../../run/application/run_providers.dart';
 
@@ -16,18 +18,12 @@ class TerritoryScreen extends ConsumerWidget {
     final territories = ref.watch(territoriesProvider);
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: onMenu == null,
-        leading: onMenu == null
-            ? null
-            : IconButton(
-                onPressed: onMenu,
-                icon: const Icon(Icons.menu_rounded),
-              ),
         title: const Text(
           'TERRITORY',
           style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
         ),
         backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
       body: territories.when(
         loading: () => const Center(
@@ -73,40 +69,55 @@ class TerritoryScreen extends ConsumerWidget {
                 bottom: 24,
                 child: SafeArea(
                   top: false,
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: AppColors.panel,
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                        color: const Color(0xFF9B5CFF).withValues(alpha: .45),
+                  child: RaceEntrance(
+                    child: NeonPanel(
+                      color: RaceColors.magenta,
+                      radius: 24,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.public_rounded,
+                                color: RaceColors.magenta,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'WORLD TERRITORY',
+                                style: TextStyle(
+                                  color: RaceColors.magenta,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '${cells.length}',
+                            style: const TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              height: 1,
+                            ),
+                          ),
+                          const Text(
+                            'territories claimed',
+                            style: TextStyle(
+                              color: RaceColors.muted,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Every road you drive claims grid cells on the map. Keep driving to expand your empire.',
+                            style: TextStyle(color: RaceColors.muted),
+                          ),
+                        ],
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'WORLD TERRITORY',
-                          style: TextStyle(
-                            color: Color(0xFFD6B3FF),
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${cells.length} territories claimed',
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Every road you drive claims grid cells on the map. Keep driving to expand your empire.',
-                          style: TextStyle(color: AppColors.muted),
-                        ),
-                      ],
                     ),
                   ),
                 ),

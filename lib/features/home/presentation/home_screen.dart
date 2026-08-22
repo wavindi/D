@@ -5,10 +5,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/racing_theme.dart';
 import '../../../features/run/application/run_providers.dart';
 import '../../../features/run/presentation/active_run_screen.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/led_button.dart';
+import '../../../shared/widgets/race_widgets.dart';
 import 'route_stop.dart';
 
 class _Destination {
@@ -26,8 +28,7 @@ const _destinations = [
 ];
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key, this.onMenu});
-  final VoidCallback? onMenu;
+  const HomeScreen({super.key});
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -320,7 +321,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                       Row(
                         children: [
-                          _MenuButton(onTap: widget.onMenu),
+                          Container(
+                            width: 54,
+                            height: 54,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: RaceColors.ink,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: RaceColors.neonBlue,
+                                width: 2,
+                              ),
+                              boxShadow: [RaceColors.glow(RaceColors.neonBlue)],
+                            ),
+                            child: const Text(
+                              'D',
+                              style: TextStyle(
+                                color: RaceColors.neonBlue,
+                                fontSize: 28,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: TextField(
@@ -328,16 +350,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               onChanged: _search,
                               onSubmitted: _submit,
                               textInputAction: TextInputAction.search,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                               decoration: InputDecoration(
                                 hintText: 'Search destination or lat, lng',
+                                hintStyle: const TextStyle(
+                                  color: RaceColors.muted,
+                                ),
                                 prefixIcon: const Icon(
                                   Icons.search,
-                                  color: AppColors.blue,
+                                  color: RaceColors.neonBlue,
                                 ),
                                 suffixIcon: IconButton(
                                   onPressed: () =>
                                       _submit(_searchController.text),
-                                  icon: const Icon(Icons.arrow_forward_rounded),
+                                  icon: const Icon(
+                                    Icons.arrow_forward_rounded,
+                                    color: RaceColors.neonBlue,
+                                  ),
+                                ),
+                                filled: true,
+                                fillColor: RaceColors.panelSolid,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  borderSide: BorderSide.none,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  borderSide: BorderSide(
+                                    color: RaceColors.neonBlue
+                                        .withValues(alpha: .3),
+                                  ),
                                 ),
                               ),
                             ),
@@ -347,9 +391,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       if (_matches.isNotEmpty)
                         Container(
                           margin: const EdgeInsets.only(left: 64, top: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.panel,
-                            borderRadius: BorderRadius.circular(16),
+                          decoration: RaceColors.panelDeco(
+                            border: RaceColors.neonBlue,
+                            radius: 16,
                           ),
                           child: ListView.separated(
                             padding: EdgeInsets.zero,
@@ -362,7 +406,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               return ListTile(
                                 leading: const Icon(
                                   Icons.flag_rounded,
-                                  color: AppColors.blue,
+                                  color: RaceColors.neonBlue,
                                 ),
                                 title: Text(destination.name),
                                 onTap: () => _selectDestination(destination),
@@ -373,71 +417,90 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          _MapPill(
-                            icon: Icons.gps_fixed_rounded,
+                          PulseDot(
+                            color: _currentPosition == null
+                                ? RaceColors.amber
+                                : RaceColors.lime,
                             label: _currentPosition == null
                                 ? 'LOCATING GPS'
                                 : 'GPS READY',
                           ),
                           const Spacer(),
-                          _RoundMapAction(
-                            icon: Icons.my_location_rounded,
-                            tooltip: 'Center on my location',
-                            onPressed: _centerOnCurrentPosition,
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: RaceColors.panelSolid,
+                              border: Border.all(
+                                color: RaceColors.neonBlue.withValues(alpha: .4),
+                              ),
+                              boxShadow: [
+                                RaceColors.glow(RaceColors.neonBlue, .35),
+                              ],
+                            ),
+                            child: IconButton(
+                              onPressed: _centerOnCurrentPosition,
+                              icon: const Icon(
+                                Icons.my_location_rounded,
+                                color: RaceColors.neonBlue,
+                              ),
+                            ),
                           ),
                         ],
                       ),
                       const Spacer(),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                        decoration: BoxDecoration(
-                          color: AppColors.panel.withValues(alpha: .96),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: AppColors.blue.withValues(alpha: .38),
-                          ),
-                          boxShadow: const [
-                            BoxShadow(color: Color(0x55000000), blurRadius: 22),
-                          ],
-                        ),
+                      NeonPanel(
+                        color: RaceColors.neonBlue,
+                        radius: 28,
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
                                 Container(
-                                  width: 42,
-                                  height: 42,
+                                  width: 46,
+                                  height: 46,
+                                  alignment: Alignment.center,
                                   decoration: BoxDecoration(
-                                    color: AppColors.blue.withValues(
-                                      alpha: .16,
-                                    ),
+                                    color: RaceColors.neonBlue
+                                        .withValues(alpha: .16),
                                     borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      RaceColors.glow(
+                                        RaceColors.neonBlue,
+                                        .4,
+                                      ),
+                                    ],
                                   ),
                                   child: const Icon(
                                     Icons.directions_car_filled_rounded,
-                                    color: AppColors.blue,
+                                    color: RaceColors.neonBlue,
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                const Expanded(
+                                Expanded(
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        'READY TO DRIVE',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 1.3,
+                                      ShaderMask(
+                                        shaderCallback: (r) =>
+                                            RaceColors.heroGradient
+                                                .createShader(r),
+                                        child: const Text(
+                                          'ENGINE READY',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 1.3,
+                                            color: Colors.white,
+                                          ),
                                         ),
                                       ),
-                                      SizedBox(height: 2),
-                                      Text(
+                                      const SizedBox(height: 2),
+                                      const Text(
                                         'Record every road you take',
                                         style: TextStyle(
-                                          color: AppColors.muted,
+                                          color: RaceColors.muted,
                                           fontSize: 12,
                                         ),
                                       ),
@@ -450,11 +513,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
-                                vertical: 7,
+                                vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.black.withValues(alpha: .42),
+                                color: RaceColors.ink,
                                 borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: autoTrack
+                                      ? RaceColors.neonBlue
+                                          .withValues(alpha: .5)
+                                      : Colors.white12,
+                                ),
                               ),
                               child: Row(
                                 children: [
@@ -463,8 +532,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         ? Icons.sensors_rounded
                                         : Icons.sensors_off_rounded,
                                     color: autoTrack
-                                        ? AppColors.blue
-                                        : AppColors.muted,
+                                        ? RaceColors.neonBlue
+                                        : RaceColors.muted,
                                     size: 18,
                                   ),
                                   const SizedBox(width: 8),
@@ -473,16 +542,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       autoTrack
                                           ? 'AUTO-TRACKING ENABLED'
                                           : 'AUTO-TRACKING OFF',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w900,
                                         letterSpacing: 1,
+                                        color: autoTrack
+                                            ? RaceColors.neonBlue
+                                            : RaceColors.muted,
                                       ),
                                     ),
                                   ),
                                   Switch.adaptive(
                                     value: autoTrack,
-                                    activeThumbColor: AppColors.blue,
+                                    activeThumbColor: RaceColors.neonBlue,
+                                    activeTrackColor: RaceColors.neonBlue
+                                        .withValues(alpha: .4),
                                     onChanged: (v) => ref
                                         .read(activeRunProvider.notifier)
                                         .setAutoTrackEnabled(v),
@@ -494,14 +568,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             Text(
                               autoStatus,
                               style: const TextStyle(
-                                color: AppColors.muted,
+                                color: RaceColors.muted,
                                 fontSize: 12,
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            LedButton(
+                            const SizedBox(height: 14),
+                            RaceButton(
                               label: 'START FREE DRIVE',
-                              icon: Icons.play_arrow_rounded,
                               busy: _starting,
                               onPressed: _startFreeDrive,
                             ),
@@ -529,90 +602,3 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _MapPill extends StatelessWidget {
-  const _MapPill({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-    decoration: BoxDecoration(
-      color: AppColors.black.withValues(alpha: .78),
-      borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: AppColors.blue.withValues(alpha: .3)),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: AppColors.blue, size: 15),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.1,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _RoundMapAction extends StatelessWidget {
-  const _RoundMapAction({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
-    child: Material(
-      color: AppColors.black.withValues(alpha: .82),
-      shape: const CircleBorder(),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon, color: AppColors.blue),
-      ),
-    ),
-  );
-}
-
-class _MenuButton extends StatelessWidget {
-  const _MenuButton({this.onTap});
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.black,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.blue, width: 2),
-            boxShadow: const [
-              BoxShadow(color: AppColors.blueGlow, blurRadius: 18),
-            ],
-          ),
-          child: const Icon(
-            Icons.menu_rounded,
-            color: AppColors.blue,
-            size: 28,
-          ),
-        ),
-      ),
-    );
-  }
-}
