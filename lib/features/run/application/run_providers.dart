@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/utils/gps_filter.dart';
 import '../../../data/repositories/run_repository.dart';
 import '../../../domain/models/run_record.dart';
 
@@ -117,7 +118,6 @@ final activeRunProvider = NotifierProvider<ActiveRunController, RunState>(
 
 class ActiveRunController extends Notifier<RunState> {
   static const _maxAccuracyMeters = 35.0;
-  static const _maxJumpMeters = 80.0;
   static const _arrivalRadiusMeters = 45.0;
   static const _autoStartSpeedKmh = 22.0;
   static const _autoStartHold = Duration(seconds: 6);
@@ -138,6 +138,8 @@ class ActiveRunController extends Notifier<RunState> {
   Duration _stoppedAccumulated = Duration.zero;
   bool _starting = false;
   LatLng? _lastTrackedPoint;
+  DateTime? _lastTrackedAt;
+  double _lastAccuracyMeters = 0;
 
   @override
   RunState build() {
@@ -186,6 +188,8 @@ class ActiveRunController extends Notifier<RunState> {
     _stoppedSince = null;
     final point = LatLng(initial.latitude, initial.longitude);
     _lastTrackedPoint = point;
+    _lastTrackedAt = initial.timestamp;
+    _lastAccuracyMeters = initial.accuracy;
     state = RunState(
       isActive: true,
       isPaused: false,
@@ -343,6 +347,7 @@ class ActiveRunController extends Notifier<RunState> {
     final route = [...state.route];
     final samples = [...state.samples];
     var distance = state.distanceMeters;
+    final speed = math.max(0.0, position.speed * 3.6);
     if (_lastTrackedPoint != null) {
       final previous = _lastTrackedPoint!;
       final step = Geolocator.distanceBetween(
@@ -351,14 +356,32 @@ class ActiveRunController extends Notifier<RunState> {
         point.latitude,
         point.longitude,
       );
-      if (step > _maxJumpMeters) return;
+      final previousTimestamp = _lastTrackedAt ?? position.timestamp;
+      final plausible = isPlausibleGpsStep(
+        distanceMeters: step,
+        elapsed: position.timestamp.difference(previousTimestamp).abs(),
+        previousSpeedKmh: state.currentSpeedKmh,
+        currentSpeedMps: position.speed,
+        previousAccuracyMeters: _lastAccuracyMeters,
+        currentAccuracyMeters: position.accuracy,
+      );
+      if (!plausible) {
+        // Advance the comparison point so one bad GPS reading cannot cause all
+        // subsequent updates to be rejected against an increasingly old point.
+        _lastTrackedPoint = point;
+        _lastTrackedAt = position.timestamp;
+        _lastAccuracyMeters = position.accuracy;
+        state = state.copyWith(currentSpeedKmh: speed);
+        return;
+      }
       if (step >= 1.5 || (position.speed * 3.6) >= 1.5) {
         distance += step;
       }
     }
     _lastTrackedPoint = point;
+    _lastTrackedAt = position.timestamp;
+    _lastAccuracyMeters = position.accuracy;
     if (route.length < _maximumSamples) route.add(point);
-    final speed = math.max(0.0, position.speed * 3.6);
     if (samples.length < _maximumSamples) {
       samples.add(
         SpeedSample(lat: point.latitude, lng: point.longitude, speedKmh: speed),
@@ -476,6 +499,8 @@ class ActiveRunController extends Notifier<RunState> {
     state = finalState;
     await _stopTracking();
     _lastTrackedPoint = null;
+    _lastTrackedAt = null;
+    _lastAccuracyMeters = 0;
     final run = RunRecord(
       startedAt: finalState.startedAt!,
       durationSeconds: finalState.elapsed.inSeconds,
