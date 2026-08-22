@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/services/recording_lease.dart';
 import '../../../domain/models/run_record.dart';
 import '../../run/application/run_providers.dart';
 import 'geofence_gate.dart';
@@ -25,6 +26,7 @@ class RacerState {
     this.startedAt,
     this.result,
     this.personalBestSeconds,
+    this.outsideConfirmed = false,
     this.error,
   });
 
@@ -40,6 +42,7 @@ class RacerState {
   final DateTime? startedAt;
   final RunRecord? result;
   final int? personalBestSeconds;
+  final bool outsideConfirmed;
   final String? error;
 
   RacerState copyWith({
@@ -55,6 +58,7 @@ class RacerState {
     DateTime? startedAt,
     RunRecord? result,
     int? personalBestSeconds,
+    bool? outsideConfirmed,
     String? error,
     bool clearResult = false,
     bool clearError = false,
@@ -74,6 +78,7 @@ class RacerState {
     personalBestSeconds: clearPersonalBest
         ? null
         : (personalBestSeconds ?? this.personalBestSeconds),
+    outsideConfirmed: outsideConfirmed ?? this.outsideConfirmed,
     error: clearError ? null : (error ?? this.error),
   );
 }
@@ -100,6 +105,7 @@ class RacerController extends Notifier<RacerState> {
     ref.onDispose(() {
       _timer?.cancel();
       unawaited(_subscription?.cancel());
+      ref.read(recordingLeaseProvider).release(RecordingOwner.racer);
     });
     return const RacerState();
   }
@@ -117,6 +123,7 @@ class RacerController extends Notifier<RacerState> {
       clearError: true,
       clearResult: true,
       clearPersonalBest: true,
+      outsideConfirmed: false,
       elapsed: Duration.zero,
       distanceMeters: 0,
       topSpeedKmh: 0,
@@ -139,7 +146,9 @@ class RacerController extends Notifier<RacerState> {
         state.phase == RacerPhase.finishing) {
       return;
     }
+    final lease = ref.read(recordingLeaseProvider);
     try {
+      lease.acquire(RecordingOwner.racer);
       await _ensureLocationAccess();
       await _subscription?.cancel();
       _gate.reset();
@@ -152,6 +161,7 @@ class RacerController extends Notifier<RacerState> {
         samples: const [],
         clearResult: true,
         clearPersonalBest: true,
+        outsideConfirmed: false,
         clearError: true,
       );
       _subscription =
@@ -167,6 +177,7 @@ class RacerController extends Notifier<RacerState> {
             },
           );
     } catch (error) {
+      lease.release(RecordingOwner.racer);
       state = state.copyWith(error: error.toString());
     }
   }
@@ -179,12 +190,14 @@ class RacerController extends Notifier<RacerState> {
     _subscription = null;
     _gate.reset();
     _lastTrackedPoint = null;
+    ref.read(recordingLeaseProvider).release(RecordingOwner.racer);
     state = state.copyWith(
       phase: RacerPhase.setup,
       elapsed: Duration.zero,
       distanceMeters: 0,
       topSpeedKmh: 0,
       samples: const [],
+      outsideConfirmed: false,
       clearError: true,
     );
   }
@@ -214,12 +227,16 @@ class RacerController extends Notifier<RacerState> {
     );
 
     if (state.phase == RacerPhase.armed) {
-      state = state.copyWith(currentPosition: point);
-      if (_gate.confirmEntry(
+      final entered = _gate.confirmEntry(
         distanceMeters: distanceToCenter,
         radiusMeters: state.radiusMeters,
         accuracyMeters: position.accuracy,
-      )) {
+      );
+      state = state.copyWith(
+        currentPosition: point,
+        outsideConfirmed: _gate.hasSeenOutside,
+      );
+      if (entered) {
         _startRace(position, point);
       }
       return;
@@ -305,6 +322,7 @@ class RacerController extends Notifier<RacerState> {
         error: 'Race ignored: record at least 10 m over 3 seconds.',
         clearResult: true,
       );
+      ref.read(recordingLeaseProvider).release(RecordingOwner.racer);
       _finishing = false;
       return;
     }
@@ -357,6 +375,7 @@ class RacerController extends Notifier<RacerState> {
         error: 'Could not preserve race result: $error',
       );
     } finally {
+      ref.read(recordingLeaseProvider).release(RecordingOwner.racer);
       _finishing = false;
     }
   }
