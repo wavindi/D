@@ -4,8 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/racing_theme.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../shared/widgets/led_button.dart';
+import '../../../shared/widgets/race_widgets.dart';
 import '../../../shared/widgets/speed_widgets.dart';
 import '../application/run_providers.dart';
 import 'scoreboard_screen.dart';
@@ -121,7 +122,7 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen>
               child: SafeArea(
                 top: false,
                 child: autoFinished
-                    ? LedButton(
+                    ? RaceButton(
                         label: 'SAVE TRIP',
                         danger: true,
                         busy: _finishing,
@@ -131,7 +132,7 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen>
                         children: [
                           Expanded(
                             flex: 4,
-                            child: LedButton(
+                            child: RaceButton(
                               label: paused ? 'RESUME' : 'PAUSE',
                               icon: paused
                                   ? Icons.play_arrow_rounded
@@ -151,7 +152,7 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen>
                           const SizedBox(width: 10),
                           Expanded(
                             flex: 6,
-                            child: LedButton(
+                            child: RaceButton(
                               label: 'FINISH',
                               danger: true,
                               busy: _finishing,
@@ -290,40 +291,21 @@ class _RunStatus extends StatelessWidget {
         ? 'AUTO-TRACKING'
         : 'RUN ACTIVE';
     final color = arrived
-        ? AppColors.blue
+        ? RaceColors.lime
         : paused
-        ? AppColors.muted
-        : AppColors.blue;
+        ? RaceColors.amber
+        : RaceColors.neonBlue;
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: AppColors.panel,
-          borderRadius: BorderRadius.circular(50),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (!paused && !arrived) const _PulseDot(),
-            if (!paused && !arrived) const SizedBox(width: 9),
-            if (paused || arrived)
-              Icon(
-                arrived ? Icons.flag_circle_rounded : Icons.pause_circle_filled,
-                size: 16,
-                color: color,
-              ),
-            if (paused || arrived) const SizedBox(width: 9),
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.4,
-                color: color,
-              ),
-            ),
-          ],
-        ),
+      child: RaceStatusPill(
+        label: label,
+        color: color,
+        pulse: !paused && !arrived,
+        icon: arrived
+            ? Icons.flag_circle_rounded
+            : paused
+            ? Icons.pause_circle_filled
+            : Icons.speed_rounded,
       ),
     );
   }

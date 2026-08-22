@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/racing_theme.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../shared/widgets/led_button.dart';
+import '../../../shared/widgets/race_widgets.dart';
 import '../../../shared/widgets/speed_widgets.dart';
 import '../application/racer_providers.dart';
 
@@ -54,6 +54,13 @@ class _RacerScreenState extends ConsumerState<RacerScreen>
     final state = ref.watch(racerProvider);
     final controller = ref.read(racerProvider.notifier);
     final active = state.phase == RacerPhase.racing;
+    final (phaseLabel, phaseColor) = switch (state.phase) {
+      RacerPhase.setup => ('RACER // SELECT ZONE', RaceColors.neonBlue),
+      RacerPhase.armed => ('RACER // WAITING FOR ENTRY', RaceColors.neonBlue),
+      RacerPhase.racing => ('RACE LIVE // EXIT TO FINISH', RaceColors.danger),
+      RacerPhase.finishing => ('RACE COMPLETE // SAVING', RaceColors.neonBlue),
+      RacerPhase.finished => ('RACE COMPLETE', RaceColors.lime),
+    };
     return Scaffold(
       body: Stack(
         children: [
@@ -81,9 +88,9 @@ class _RacerScreenState extends ConsumerState<RacerScreen>
                     point: state.trackCenter,
                     radius: state.radiusMeters,
                     useRadiusInMeter: true,
-                    color: (active ? AppColors.danger : AppColors.blue)
+                    color: (active ? RaceColors.danger : RaceColors.neonBlue)
                         .withValues(alpha: .16),
-                    borderColor: active ? AppColors.danger : AppColors.blue,
+                    borderColor: active ? RaceColors.danger : RaceColors.neonBlue,
                     borderStrokeWidth: 2,
                   ),
                 ],
@@ -98,7 +105,7 @@ class _RacerScreenState extends ConsumerState<RacerScreen>
                     height: 52,
                     child: const Icon(
                       Icons.flag_rounded,
-                      color: AppColors.blue,
+                      color: RaceColors.neonBlue,
                       size: 40,
                     ),
                   ),
@@ -123,22 +130,20 @@ class _RacerScreenState extends ConsumerState<RacerScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: widget.onMenu,
-                        style: IconButton.styleFrom(
-                          backgroundColor: AppColors.panel,
-                          foregroundColor: AppColors.blue,
-                        ),
-                        icon: const Icon(Icons.menu_rounded),
-                      ),
-                      const SizedBox(width: 10),
-                      _StatusPill(phase: state.phase),
-                    ],
+                  RaceStatusPill(
+                    label: phaseLabel,
+                    color: phaseColor,
+                    pulse: active,
+                    icon: Icons.speed_rounded,
                   ),
                   const SizedBox(height: 10),
-                  if (active) _RaceHud(state: state),
+                  if (active)
+                    RaceEntrance(
+                      child: _RaceHud(
+                        state: state,
+                        color: phaseColor,
+                      ),
+                    ),
                   if (state.error != null) _ErrorBanner(message: state.error!),
                 ],
               ),
@@ -150,11 +155,14 @@ class _RacerScreenState extends ConsumerState<RacerScreen>
             bottom: 12,
             child: SafeArea(
               top: false,
-              child: _RacerConsole(
-                state: state,
-                onRadiusChanged: controller.setRadius,
-                onArm: controller.arm,
-                onCancel: controller.cancel,
+              child: RaceEntrance(
+                delay: const Duration(milliseconds: 120),
+                child: _RacerConsole(
+                  state: state,
+                  onRadiusChanged: controller.setRadius,
+                  onArm: controller.arm,
+                  onCancel: controller.cancel,
+                ),
               ),
             ),
           ),
@@ -164,62 +172,30 @@ class _RacerScreenState extends ConsumerState<RacerScreen>
   }
 }
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.phase});
-  final RacerPhase phase;
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = switch (phase) {
-      RacerPhase.setup => ('RACER // SELECT ZONE', AppColors.blue),
-      RacerPhase.armed => ('RACER // WAITING FOR ENTRY', AppColors.blue),
-      RacerPhase.racing => ('RACE LIVE // EXIT TO FINISH', AppColors.danger),
-      RacerPhase.finishing => ('RACE COMPLETE // SAVING', AppColors.blue),
-      RacerPhase.finished => ('RACE COMPLETE', AppColors.blue),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: AppColors.panel,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: .6)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1,
-        ),
-      ),
-    );
-  }
-}
-
 class _RaceHud extends StatelessWidget {
-  const _RaceHud({required this.state});
+  const _RaceHud({required this.state, required this.color});
   final RacerState state;
+  final Color color;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: AppColors.panel,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: AppColors.danger.withValues(alpha: .55)),
-    ),
-    child: Row(
-      children: [
-        _HudValue(label: 'TIME', value: formatDuration(state.elapsed)),
-        _HudValue(label: 'DIST', value: formatDistance(state.distanceMeters)),
-        _HudValue(
-          label: 'MAX',
-          value: '${state.topSpeedKmh.toStringAsFixed(0)} km/h',
+  Widget build(BuildContext context) => NeonPanel(
+        color: color,
+        radius: 20,
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            _HudValue(label: 'TIME', value: formatDuration(state.elapsed)),
+            _HudValue(
+              label: 'DIST',
+              value: formatDistance(state.distanceMeters),
+            ),
+            _HudValue(
+              label: 'MAX',
+              value: '${state.topSpeedKmh.toStringAsFixed(0)} km/h',
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }
 
 class _HudValue extends StatelessWidget {
@@ -229,26 +205,26 @@ class _HudValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Expanded(
-    child: Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.muted,
-            fontSize: 10,
-            letterSpacing: 1.2,
-          ),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: RaceText.label.copyWith(fontSize: 10),
+            ),
+            const SizedBox(height: 5),
+            FittedBox(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        FittedBox(
-          child: Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
-        ),
-      ],
-    ),
-  );
+      );
 }
 
 class _RacerConsole extends StatelessWidget {
@@ -268,29 +244,40 @@ class _RacerConsole extends StatelessWidget {
     final finished = state.phase == RacerPhase.finished;
     final active = state.phase == RacerPhase.racing;
     final finishing = state.phase == RacerPhase.finishing;
-    return Container(
+    final racing = state.phase == RacerPhase.racing ||
+        state.phase == RacerPhase.armed;
+    return NeonPanel(
+      color: racing ? RaceColors.danger : RaceColors.neonBlue,
+      radius: 22,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.panel.withValues(alpha: .96),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.blue.withValues(alpha: .35)),
-      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            state.trackName.toUpperCase(),
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-            ),
+          Row(
+            children: [
+              const Icon(
+                Icons.sports_score_rounded,
+                color: RaceColors.neonBlue,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  state.trackName.toUpperCase(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           const Text(
             'CLOSED COURSE ONLY • Never operate this screen while driving.',
             style: TextStyle(
-              color: AppColors.danger,
+              color: RaceColors.danger,
               fontSize: 10,
               fontWeight: FontWeight.w800,
             ),
@@ -301,32 +288,32 @@ class _RacerConsole extends StatelessWidget {
                 ? 'Preserving your result and synchronizing it.'
                 : state.phase == RacerPhase.armed
                 ? state.outsideConfirmed
-                      ? 'READY // Enter the zone to start.'
-                      : 'Move fully outside the zone to confirm the start.'
+                    ? 'READY // Enter the zone to start.'
+                    : 'Move fully outside the zone to confirm the start.'
                 : active
                 ? 'Cross the boundary to lock your result.'
                 : 'Tap the map to place a zone. Start outside, then enter it.',
-            style: const TextStyle(color: AppColors.muted, fontSize: 12),
+            style: const TextStyle(color: RaceColors.muted, fontSize: 12),
           ),
           if (!active && !finished && !finishing) ...[
             const SizedBox(height: 8),
             Row(
               children: [
-                const Text('ZONE'),
+                const Text('ZONE', style: RaceText.label),
                 Expanded(
                   child: Slider(
                     value: state.radiusMeters,
                     min: 50,
                     max: 200,
                     divisions: 6,
-                    activeColor: AppColors.blue,
+                    activeColor: RaceColors.neonBlue,
                     onChanged: onRadiusChanged,
                   ),
                 ),
                 Text(
                   '${state.radiusMeters.toStringAsFixed(0)}m',
                   style: const TextStyle(
-                    color: AppColors.blue,
+                    color: RaceColors.neonBlue,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -339,15 +326,20 @@ class _RacerConsole extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           if (finishing)
-            LedButton(label: 'SAVING RESULT', busy: true, onPressed: null)
-          else if (active || state.phase == RacerPhase.armed)
-            LedButton(
+            RaceButton(
+              label: 'SAVING RESULT',
+              busy: true,
+              onPressed: null,
+            )
+          else if (racing)
+            RaceButton(
               label: active ? 'ABORT RACE' : 'CANCEL ARMING',
               danger: true,
+              color: RaceColors.danger,
               onPressed: onCancel,
             )
           else
-            LedButton(
+            RaceButton(
               label: finished ? 'ARM NEW RACE' : 'ARM RACER',
               icon: Icons.flag_rounded,
               onPressed: onArm,
@@ -369,22 +361,46 @@ class _Comparison extends StatelessWidget {
     final delta = best == null ? null : result.durationSeconds - best;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.black.withValues(alpha: .35),
-        borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.all(12),
+      decoration: RaceColors.panelDeco(
+        border: delta != null && delta <= 0
+            ? RaceColors.neonBlue
+            : RaceColors.muted,
+        radius: 14,
       ),
-      child: Text(
-        delta == null
-            ? 'FIRST ZONE RESULT • ${formatDuration(Duration(seconds: result.durationSeconds))}'
-            : delta <= 0
-            ? 'NEW PERSONAL BEST • ${formatDuration(Duration(seconds: result.durationSeconds))}'
-            : '${formatDuration(Duration(seconds: delta))} BEHIND YOUR BEST',
-        style: TextStyle(
-          color: delta != null && delta <= 0 ? AppColors.blue : Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: 12,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            delta == null
+                ? 'FIRST ZONE RESULT'
+                : delta <= 0
+                ? 'NEW PERSONAL BEST'
+                : 'YOUR BEST',
+            style: TextStyle(
+              color: delta != null && delta <= 0
+                  ? RaceColors.neonBlue
+                  : RaceColors.muted,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            formatDuration(Duration(seconds: result.durationSeconds)),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 22,
+            ),
+          ),
+          if (delta != null && delta > 0)
+            Text(
+              '${formatDuration(Duration(seconds: delta))} behind your best',
+              style: const TextStyle(color: RaceColors.muted, fontSize: 12),
+            ),
+        ],
       ),
     );
   }
@@ -396,10 +412,16 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(top: 8),
-    padding: const EdgeInsets.all(10),
-    color: AppColors.danger.withValues(alpha: .85),
-    child: Text(message, style: const TextStyle(fontWeight: FontWeight.w700)),
-  );
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: RaceColors.danger.withValues(alpha: .9),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          message,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      );
 }

@@ -107,6 +107,7 @@ class RaceButton extends StatelessWidget {
     required this.onPressed,
     this.icon = Icons.play_arrow_rounded,
     this.color = RaceColors.neonBlue,
+    this.danger = false,
     this.busy = false,
     this.fullWidth = true,
     this.height = 60,
@@ -115,22 +116,24 @@ class RaceButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final IconData icon;
   final Color color;
+  final bool danger;
   final bool busy;
   final bool fullWidth;
   final double height;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = danger ? RaceColors.danger : color;
     final child = Container(
       height: height,
       width: fullWidth ? double.infinity : null,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         gradient: LinearGradient(
-          colors: [color, color.withValues(alpha: .75)],
+          colors: [effectiveColor, effectiveColor.withValues(alpha: .75)],
         ),
         boxShadow: [
-          BoxShadow(color: color.withValues(alpha: .5), blurRadius: 24),
+          BoxShadow(color: effectiveColor.withValues(alpha: .5), blurRadius: 24),
         ],
       ),
       child: Material(
@@ -179,6 +182,7 @@ class RaceGauge extends StatefulWidget {
     required this.max,
     this.label = '',
     this.unit = '',
+    this.centerLabel,
     this.color = RaceColors.neonBlue,
     this.size = 150,
   });
@@ -186,6 +190,7 @@ class RaceGauge extends StatefulWidget {
   final double max;
   final String label;
   final String unit;
+  final String? centerLabel;
   final Color color;
   final double size;
 
@@ -247,7 +252,7 @@ class _RaceGaugeState extends State<RaceGauge>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    current.toStringAsFixed(0),
+                    widget.centerLabel ?? current.toStringAsFixed(0),
                     style: RaceText.display.copyWith(
                       fontSize: widget.size * 0.30,
                       color: Colors.white,
@@ -354,9 +359,10 @@ class _GaugePainter extends CustomPainter {
 
 /// Pulsing status dot (GPS locked, live, etc).
 class PulseDot extends StatefulWidget {
-  const PulseDot({super.key, this.color = RaceColors.lime, this.label});
+  const PulseDot({super.key, this.color = RaceColors.lime, this.label, this.size = 10});
   final Color color;
   final String? label;
+  final double size;
   @override
   State<PulseDot> createState() => _PulseDotState();
 }
@@ -381,8 +387,8 @@ class _PulseDotState extends State<PulseDot>
           FadeTransition(
             opacity: _c,
             child: Container(
-              width: 10,
-              height: 10,
+              width: widget.size,
+              height: widget.size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: widget.color,
@@ -492,4 +498,77 @@ class RaceBar extends StatelessWidget {
       ),
     );
   }
+}
+
+class RaceStatusPill extends StatelessWidget {
+  const RaceStatusPill({
+    super.key,
+    required this.label,
+    required this.color,
+    this.pulse = false,
+    this.icon,
+  });
+  final String label;
+  final Color color;
+  final bool pulse;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: RaceColors.ink,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withValues(alpha: .6), width: 1.4),
+          boxShadow: [RaceColors.glow(color, .45)],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (pulse)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: PulseDot(color: color, size: 9, label: null),
+              )
+            else if (icon != null) ...[
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class LiveSpeedo extends StatelessWidget {
+  const LiveSpeedo({
+    super.key,
+    required this.speedKmh,
+    this.max = 200,
+    this.color = RaceColors.neonBlue,
+    this.size = 150,
+  });
+  final double speedKmh;
+  final double max;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => RaceGauge(
+        value: speedKmh,
+        max: max,
+        unit: 'km/h',
+        color: color,
+        size: size,
+        centerLabel: speedKmh.toStringAsFixed(0),
+      );
 }

@@ -19,7 +19,7 @@ void main() {
   testWidgets('login fits iPhone 13 Pro Max logical viewport', (tester) async {
     await pumpAuthAt(tester, const Size(428, 926));
 
-    expect(find.text('Sign in to save trips'), findsOneWidget);
+    expect(find.text('Sign in to race'), findsOneWidget);
     expect(find.text('LOG IN'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
